@@ -95,7 +95,7 @@ function App() {
     client.from("products").select("id,name,category,description,price,stock,image_url").eq("is_active", true).order("created_at")
       .then(({ data, error }) => {
         if (!active) return;
-        if (!error && data?.length) setProducts(data as Product[]);
+        if (!error) setProducts((data ?? []) as Product[]);
       });
     const syncUser = async (userId: string | null, userEmailValue: string | null) => {
       if (!active) return;
