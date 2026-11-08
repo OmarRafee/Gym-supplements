@@ -110,8 +110,8 @@ function App() {
         if (!active) return;
         if (!error) setProducts((data ?? []) as Product[]);
       });
-    client.from("store_settings").select("setting_key,setting_value").then(({data}) => {
-      if (active && data) setAdminSettings(Object.fromEntries(data.map((item:any) => [item.setting_key,item.setting_value])));
+    client.rpc("get_public_store_settings").then(({data}) => {
+      if (active && data) setAdminSettings(data as Record<string,any>);
     });
     const syncUser = async (userId: string | null, userEmailValue: string | null) => {
       if (!active) return;
