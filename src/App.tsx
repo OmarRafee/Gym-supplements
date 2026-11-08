@@ -58,6 +58,7 @@ const fallbackProducts: Product[] = [
 ];
 
 const money = (value: number) => new Intl.NumberFormat("en-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(value);
+const toLocalDateTime = (value?: string | null) => { if (!value) return ""; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString().slice(0,16); };
 
 function App() {
   const heroRef = useRef<HTMLElement>(null);
@@ -96,6 +97,8 @@ function App() {
   const [orderConfirmation, setOrderConfirmation] = useState<{order_number:string|null,total:number}|null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const [editingCategory, setEditingCategory] = useState<StoreCategory | null>(null);
   const [category, setCategory] = useState("ALL");
 
   useEffect(() => {
@@ -210,7 +213,8 @@ function App() {
   async function saveAdminCoupon(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !isAdmin) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const starts = String(form.get("starts_at") || "");
     const ends = String(form.get("ends_at") || "");
     const payload = {
@@ -239,7 +243,8 @@ function App() {
     if (result.error) { setNotice(result.error.message); return; }
     setNotice(editingId ? "Discount updated." : "Discount created.");
     await loadAdminData();
-    (event.currentTarget as HTMLFormElement).reset();
+    setEditingCoupon(null);
+    formElement.reset();
   }
 
   async function toggleCoupon(coupon: Coupon) {
@@ -251,14 +256,15 @@ function App() {
   async function saveAdminCategory(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !isAdmin) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const name = String(form.get("name") || "").trim();
     const slug = String(form.get("slug") || "").trim().toLowerCase() || name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
     if (!name || !slug) { setNotice("Enter a category name."); return; }
     const id = String(form.get("id") || "");
     const payload = { name, slug, description: String(form.get("description") || "").trim() || null, sort_order: Number(form.get("sort_order") || 0), is_active: true };
     const result = id ? await supabase.from("product_categories").update(payload).eq("id",id) : await supabase.from("product_categories").insert(payload);
-    if (result.error) setNotice(result.error.message); else { setNotice("Category saved."); (event.currentTarget as HTMLFormElement).reset(); await loadAdminData(); }
+    if (result.error) setNotice(result.error.message); else { setNotice("Category saved."); setEditingCategory(null); formElement.reset(); await loadAdminData(); }
   }
 
   async function toggleCategory(item: StoreCategory) {
@@ -323,7 +329,7 @@ function App() {
     formElement.reset();
     setNotice(editingProduct ? "Product updated." : "Product added.");
     await loadAdminData();
-    const { data } = await supabase.from("products").select("id,name,category,description,price,stock,image_url").eq("is_active", true).order("created_at");
+    const { data } = await supabase.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url").eq("is_active", true).order("created_at");
     if (data) setProducts(data as Product[]);
   }
 
@@ -358,6 +364,10 @@ function App() {
   const visibleProducts = category === "ALL" ? products : products.filter((product) => product.category?.toUpperCase() === category);
   const cartItems = products.filter((product) => cart[product.id]).map((product) => ({ ...product, quantity: cart[product.id] }));
   const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shippingSettings = adminSettings.shipping ?? { standard_fee: 60, free_shipping_threshold: 1500, estimated_delivery: "2–5 business days" };
+  const estimatedShipping = cartTotal >= Number(shippingSettings.free_shipping_threshold ?? 1500) ? 0 : Number(shippingSettings.standard_fee ?? 60);
+  const checkoutTotal = Math.max(0, cartTotal - couponDiscount + estimatedShipping);
+  useEffect(() => { setCouponDiscount(0); setCouponMessage(""); }, [cart]);
   const addToCart = (id: string) => {
     const product = products.find((item) => item.id === id);
     if (!product || product.stock <= 0) { setNotice("This product is currently out of stock."); return; }
@@ -448,11 +458,12 @@ function App() {
 
       <main id="top">
         <section className="hero" ref={heroRef}>
+          {adminSettings.homepage?.announcement && <div className="announcement-bar">{adminSettings.homepage.announcement}</div>}
           <div className="hero-inner">
             <div className="hero-copy">
               <p className="eyebrow"><span className="eyebrow-line"/> PERFORMANCE, REFINED</p>
-              <h1>Make every<br/><em>rep</em> count.</h1>
-              <p className="hero-description">Precision nutrition for people who take their progress personally. Nothing extra. Nothing overlooked.</p>
+              <h1>{adminSettings.homepage?.hero_title || "Make every rep count."}</h1>
+              <p className="hero-description">{adminSettings.homepage?.hero_subtitle || "Precision nutrition for people who take their progress personally. Nothing extra. Nothing overlooked."}</p>
               <div className="hero-links"><a className="button button-light" href="#shop">Explore the collection <ArrowUpRight size={16}/></a><span>BUILT FOR THE LONG RUN</span></div>
             </div>
             <div className="hero-visual">
@@ -526,8 +537,12 @@ function App() {
         </>}</aside></div>}
 
 
-      {checkoutOpen && <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}><section className="auth-modal checkout-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setCheckoutOpen(false)}><X/></button><p className="eyebrow">SECURE CHECKOUT</p><h2>Almost yours.</h2><p className="auth-sub">Delivery details · Total {money(cartTotal)}</p><form onSubmit={handleCheckout}><label>Full name<input name="full_name" required minLength={2} placeholder="Your full name"/></label><label>Phone number<input name="phone" required minLength={7} placeholder="+20"/></label><label>City<input name="city" required placeholder="Cairo"/></label><label>Delivery address<input name="address" required minLength={5} placeholder="Street, building, apartment"/></label><label>Payment method<select name="payment_method" defaultValue="cod"><option value="cod">Cash on delivery</option><option value="instapay">InstaPay transfer (manual confirmation)</option></select></label><label>Delivery notes (optional)<input name="notes" placeholder="Anything we should know?"/></label><button className="button button-dark full-button" type="submit">Place order <ArrowRight size={16}/></button></form></section></div>}
+      {checkoutOpen && <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}><section className="auth-modal checkout-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setCheckoutOpen(false)}><X/></button><p className="eyebrow">SECURE CHECKOUT</p><h2>Almost yours.</h2><p className="auth-sub">Delivery details · Your order is confirmed after you submit this form.</p>
+          <div className="coupon-entry"><div><label htmlFor="checkout-coupon">Discount code</label><div className="coupon-entry-row"><input id="checkout-coupon" value={couponCode} onChange={e => {setCouponCode(e.target.value.toUpperCase());setCouponDiscount(0);setCouponMessage("");}} placeholder="Enter your code"/><button type="button" onClick={() => void previewCoupon()}>Apply</button></div></div>{couponMessage && <small className={couponDiscount > 0 ? "coupon-success" : "coupon-error"}>{couponMessage}</small>}</div>
+          <div className="checkout-summary"><span>Subtotal <b>{money(cartTotal)}</b></span><span>Delivery <b>{estimatedShipping===0 ? "FREE" : money(estimatedShipping)}</b></span>{couponDiscount>0 && <span>Discount <b>−{money(couponDiscount)}</b></span>}<strong>Total <b>{money(checkoutTotal)}</b></strong></div>
+          <form onSubmit={handleCheckout}><label>Full name<input name="full_name" required minLength={2} placeholder="Your full name"/></label><label>Phone number<input name="phone" required minLength={7} placeholder="+20"/></label><label>City<input name="city" required placeholder="Cairo"/></label><label>Delivery address<input name="address" required minLength={5} placeholder="Street, building, apartment"/></label><label>Payment method<select name="payment_method" defaultValue="cod"><option value="cod">Cash on delivery</option><option value="instapay">InstaPay transfer (manual confirmation)</option></select></label><label>Delivery notes (optional)<input name="notes" placeholder="Anything we should know?"/></label><button className="button button-dark full-button" type="submit">Place order <ArrowRight size={16}/></button></form></section></div>}
 
+      {orderConfirmation && <div className="modal-backdrop"><section className="auth-modal order-success-modal"><div className="success-mark"><Check size={28}/></div><p className="eyebrow">ORDER RECEIVED</p><h2>You're one step closer.</h2><p className="auth-sub">Your order has been saved. Our team will contact you to confirm delivery details.</p><div className="order-reference"><span>ORDER REFERENCE</span><strong>{orderConfirmation.order_number || "Received"}</strong><b>{money(orderConfirmation.total)}</b></div><button className="button button-dark full-button" onClick={() => setOrderConfirmation(null)}>Continue shopping <ArrowRight size={16}/></button></section></div>}
       {authOpen && <div className="modal-backdrop" onClick={() => setAuthOpen(false)}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setAuthOpen(false)}><X/></button><p className="eyebrow">WELCOME TO FORME</p><h2>{authMode === "login" ? "Good to see you." : "Start your standard."}</h2><p className="auth-sub">Your account keeps your orders and details in one place.</p><form onSubmit={handleAuth}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com"/></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={authMode === "signup" ? 8 : 6} required placeholder={authMode === "signup" ? "At least 8 characters" : "Your password"}/></label><button className="button button-dark full-button" type="submit">{authMode === "login" ? "Sign in" : "Create account"} <ArrowRight size={16}/></button></form>{authMode === "login" && <button className="switch-auth" onClick={() => void sendPasswordReset()}>Forgot password? Send me a reset link</button>}<button className="switch-auth" onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}>{authMode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}</button></section></div>}
 
 
@@ -537,7 +552,7 @@ function App() {
         <aside className="admin-sidebar">
           <div className="admin-brand"><span className="admin-brand-mark">F.</span><div><strong>FORME</strong><small>STORE CONTROL</small></div></div>
           <div className="admin-nav">
-            {(["overview","products","orders","customers","inventory"] as const).map((tab) => <button key={tab} className={adminTab === tab ? "active" : ""} onClick={() => setAdminTab(tab)}>{tab}</button>)}
+            {(["overview","products","orders","customers","inventory","discounts","categories","settings"] as const).map((tab) => <button key={tab} className={adminTab === tab ? "active" : ""} onClick={() => setAdminTab(tab)}>{tab}</button>)}
           </div>
           <div className="admin-sidebar-bottom"><span>{userEmail}</span><button onClick={() => setAdminOpen(false)}>Back to storefront ↗</button><button onClick={async () => { await supabase?.auth.signOut(); setAdminOpen(false); }}>Sign out</button></div>
         </aside>
@@ -546,10 +561,14 @@ function App() {
           {adminLoading && <p className="admin-loading">Updating live store data…</p>}
           {adminTab === "overview" && <div className="admin-content">
             <div className="admin-stat-grid">
-              <article><span>ORDERS</span><strong>{adminOrders.length}</strong><small>Latest 100 orders</small></article>
-              <article><span>GROSS ORDER VALUE</span><strong>{money(adminOrders.filter(o => o.status !== "cancelled").reduce((s,o) => s + Number(o.total || 0),0))}</strong><small>Based on loaded orders</small></article>
-              <article><span>ACTIVE PRODUCTS</span><strong>{adminProducts.filter(p => p.is_active !== false).length}</strong><small>Store catalogue</small></article>
-              <article><span>LOW STOCK</span><strong>{adminProducts.filter(p => p.is_active !== false && p.stock <= (p.reorder_level ?? 5)).length}</strong><small>At or below reorder level</small></article>
+              <article><span>ALL ORDERS</span><strong>{Number(dashboardStats.orders_count ?? adminOrders.length)}</strong><small>{Number(dashboardStats.pending_orders ?? 0)} awaiting action</small></article>
+              <article><span>GROSS ORDER VALUE</span><strong>{money(Number(dashboardStats.gross_sales ?? 0))}</strong><small>Excludes cancelled orders</small></article>
+              <article><span>PAID REVENUE</span><strong>{money(Number(dashboardStats.paid_sales ?? 0))}</strong><small>Payments marked paid</small></article>
+              <article><span>ACTIVE CUSTOMERS</span><strong>{Number(dashboardStats.customers_count ?? adminCustomers.length)}</strong><small>Registered profiles</small></article>
+              <article><span>ACTIVE PRODUCTS</span><strong>{Number(dashboardStats.active_products ?? 0)}</strong><small>Store catalogue</small></article>
+              <article><span>LOW STOCK</span><strong>{Number(dashboardStats.low_stock ?? 0)}</strong><small>At or below reorder level</small></article>
+              <article><span>UNITS IN STOCK</span><strong>{Number(dashboardStats.inventory_units ?? 0)}</strong><small>Across active products</small></article>
+              <article><span>ACTIVE DISCOUNTS</span><strong>{adminCoupons.filter(c=>c.is_active).length}</strong><small>Promotions enabled</small></article>
             </div>
             <div className="admin-panel"><div className="admin-panel-head"><h2>Recent orders</h2><button onClick={() => setAdminTab("orders")}>View all ↗</button></div>
               {adminOrders.slice(0,6).map(order => <div className="admin-row" key={order.id}><div><strong>{order.order_number || order.id.slice(0,8)}</strong><small>{order.full_name} · {new Date(order.created_at).toLocaleString()}</small></div><span className={"status-pill status-" + order.status}>{order.status}</span><b>{money(Number(order.total))}</b></div>)}
