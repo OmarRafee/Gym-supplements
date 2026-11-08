@@ -196,6 +196,94 @@ function App() {
     setAdminLoading(false);
   }
 
+
+  async function previewCoupon() {
+    if (!supabase || !couponCode.trim()) { setCouponMessage("Enter a code first."); return; }
+    const { data, error } = await supabase.rpc("preview_coupon", { p_code: couponCode.trim(), p_subtotal: cartTotal });
+    if (error) { setCouponDiscount(0); setCouponMessage(error.message); return; }
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!result?.valid) { setCouponDiscount(0); setCouponMessage(result?.message || "This code is not available."); return; }
+    setCouponDiscount(Number(result.discount_amount || 0));
+    setCouponMessage(result.message || "Discount applied.");
+  }
+
+  async function saveAdminCoupon(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !isAdmin) return;
+    const form = new FormData(event.currentTarget);
+    const starts = String(form.get("starts_at") || "");
+    const ends = String(form.get("ends_at") || "");
+    const payload = {
+      code: String(form.get("code") || "").trim().toUpperCase(),
+      description: String(form.get("description") || "").trim() || null,
+      discount_type: String(form.get("discount_type") || "percentage"),
+      discount_value: Number(form.get("discount_value")),
+      minimum_order: Number(form.get("minimum_order") || 0),
+      maximum_discount: form.get("maximum_discount") ? Number(form.get("maximum_discount")) : null,
+      usage_limit: form.get("usage_limit") ? Number(form.get("usage_limit")) : null,
+      starts_at: starts ? new Date(starts).toISOString() : null,
+      ends_at: ends ? new Date(ends).toISOString() : null,
+      is_active: form.get("is_active") === "on",
+    };
+    if (!/^[A-Z0-9_-]{3,32}$/.test(payload.code) || !Number.isFinite(payload.discount_value) || payload.discount_value <= 0 ||
+      payload.minimum_order < 0 || (payload.discount_type === "percentage" && payload.discount_value > 100) ||
+      (payload.maximum_discount !== null && payload.maximum_discount <= 0) ||
+      (payload.usage_limit !== null && (!Number.isInteger(payload.usage_limit) || payload.usage_limit < 1)) ||
+      (starts && ends && new Date(ends) <= new Date(starts))) {
+      setNotice("Check the discount code, value, limits and schedule."); return;
+    }
+    const editingId = String(form.get("id") || "");
+    const result = editingId
+      ? await supabase.from("coupons").update(payload).eq("id", editingId)
+      : await supabase.from("coupons").insert(payload);
+    if (result.error) { setNotice(result.error.message); return; }
+    setNotice(editingId ? "Discount updated." : "Discount created.");
+    await loadAdminData();
+    (event.currentTarget as HTMLFormElement).reset();
+  }
+
+  async function toggleCoupon(coupon: Coupon) {
+    if (!supabase || !isAdmin) return;
+    const { error } = await supabase.from("coupons").update({ is_active: !coupon.is_active }).eq("id", coupon.id);
+    if (error) setNotice(error.message); else { setNotice(coupon.is_active ? "Discount paused." : "Discount activated."); await loadAdminData(); }
+  }
+
+  async function saveAdminCategory(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !isAdmin) return;
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") || "").trim();
+    const slug = String(form.get("slug") || "").trim().toLowerCase() || name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+    if (!name || !slug) { setNotice("Enter a category name."); return; }
+    const id = String(form.get("id") || "");
+    const payload = { name, slug, description: String(form.get("description") || "").trim() || null, sort_order: Number(form.get("sort_order") || 0), is_active: true };
+    const result = id ? await supabase.from("product_categories").update(payload).eq("id",id) : await supabase.from("product_categories").insert(payload);
+    if (result.error) setNotice(result.error.message); else { setNotice("Category saved."); (event.currentTarget as HTMLFormElement).reset(); await loadAdminData(); }
+  }
+
+  async function toggleCategory(item: StoreCategory) {
+    if (!supabase || !isAdmin) return;
+    const { error } = await supabase.from("product_categories").update({ is_active: !item.is_active }).eq("id",item.id);
+    if (error) setNotice(error.message); else { setNotice(item.is_active ? "Category hidden." : "Category restored."); await loadAdminData(); }
+  }
+
+  async function saveStoreSettings(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !isAdmin) return;
+    const form = new FormData(event.currentTarget);
+    const records = [
+      { setting_key: "store_profile", setting_value: { store_name: String(form.get("store_name") || "FORME").trim(), support_email: String(form.get("support_email") || "").trim(), support_phone: String(form.get("support_phone") || "").trim(), currency: "EGP", country: "Egypt" }, description: "Public store identity and contact details" },
+      { setting_key: "shipping", setting_value: { standard_fee: Number(form.get("standard_fee") || 0), free_shipping_threshold: Number(form.get("free_shipping_threshold") || 0), estimated_delivery: String(form.get("estimated_delivery") || "").trim() }, description: "Checkout delivery pricing and estimate" },
+      { setting_key: "homepage", setting_value: { announcement: String(form.get("announcement") || "").trim(), hero_title: String(form.get("hero_title") || "").trim(), hero_subtitle: String(form.get("hero_subtitle") || "").trim() }, description: "Homepage copy and announcement bar" },
+      { setting_key: "social", setting_value: { instagram_url: String(form.get("instagram_url") || "").trim(), facebook_url: String(form.get("facebook_url") || "").trim(), whatsapp_number: String(form.get("whatsapp_number") || "").trim() }, description: "Store social and support links" },
+    ];
+    if (records.some((record:any) => Object.values(record.setting_value).some((value:any) => typeof value === "number" && (!Number.isFinite(value) || value < 0)))) {
+      setNotice("Shipping values must be valid non-negative numbers."); return;
+    }
+    const { error } = await supabase.from("store_settings").upsert(records, { onConflict: "setting_key" });
+    if (error) setNotice(error.message); else { setNotice("Store settings saved."); await loadAdminData(); }
+  }
+
   async function saveAdminProduct(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !isAdmin) return;
