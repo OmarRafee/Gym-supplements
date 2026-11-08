@@ -33,6 +33,7 @@ function App() {
   const [products, setProducts] = useState<Product[]>(fallbackProducts);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -107,6 +108,29 @@ function App() {
     if (next <= 0) delete updated[id]; else updated[id] = next;
     return updated;
   });
+
+
+  async function handleCheckout(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase) { setNotice("Connect Supabase to place an order."); return; }
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) { setCheckoutOpen(false); setAuthMode("login"); setAuthOpen(true); setNotice("Please sign in before checkout."); return; }
+    const form = new FormData(event.currentTarget);
+    const payload = {
+      p_items: cartItems.map((item) => ({ product_id: item.id, quantity: item.quantity })),
+      p_full_name: String(form.get("full_name") ?? ""),
+      p_phone: String(form.get("phone") ?? ""),
+      p_address: String(form.get("address") ?? ""),
+      p_city: String(form.get("city") ?? ""),
+      p_payment_method: String(form.get("payment_method") ?? "cod"),
+      p_notes: String(form.get("notes") ?? ""),
+    };
+    const { data, error } = await supabase.rpc("place_order", payload);
+    if (error) { setNotice(error.message); return; }
+    setCart({});
+    setCheckoutOpen(false);
+    setNotice("Order placed. Reference: " + String(data).slice(0, 8));
+  }
 
   async function handleAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -212,8 +236,11 @@ function App() {
       {cartOpen && <div className="drawer-backdrop" onClick={() => setCartOpen(false)}><aside className="drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-head"><div><p className="eyebrow">YOUR SELECTION</p><h2>The bag <span>({cartItems.length})</span></h2></div><button className="icon-button" onClick={() => setCartOpen(false)}><X/></button></div>
         {cartItems.length === 0 ? <div className="empty-state"><ShoppingBag size={30}/><p>Your bag is waiting for something good.</p><button className="underlined-link" onClick={() => setCartOpen(false)}>Explore products <ArrowRight size={14}/></button></div> : <>
           <div className="drawer-items">{cartItems.map((item) => <div className="drawer-item" key={item.id}><div className="drawer-thumb">F.</div><div className="drawer-item-info"><strong>{item.name}</strong><span>{money(item.price)}</span><div className="quantity-control"><button onClick={() => changeQuantity(item.id, -1)}><Minus size={13}/></button><span>{item.quantity}</span><button onClick={() => changeQuantity(item.id, 1)}><Plus size={13}/></button></div></div><strong>{money(item.price * item.quantity)}</strong></div>)}</div>
-          <div className="drawer-total"><span>SUBTOTAL</span><strong>{money(cartTotal)}</strong></div><p className="checkout-note">Shipping and payment details are confirmed at checkout.</p><button className="button button-dark full-button" onClick={() => setNotice("Checkout is the next build step. Your bag is saved in this session.")}>Continue to checkout <ArrowRight size={16}/></button>
+          <div className="drawer-total"><span>SUBTOTAL</span><strong>{money(cartTotal)}</strong></div><p className="checkout-note">Shipping and payment details are confirmed at checkout.</p><button className="button button-dark full-button" onClick={() => { setCartOpen(false); setCheckoutOpen(true); }}>Continue to checkout <ArrowRight size={16}/></button>
         </>}</aside></div>}
+
+
+      {checkoutOpen && <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}><section className="auth-modal checkout-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setCheckoutOpen(false)}><X/></button><p className="eyebrow">SECURE CHECKOUT</p><h2>Almost yours.</h2><p className="auth-sub">Delivery details · Total {money(cartTotal)}</p><form onSubmit={handleCheckout}><label>Full name<input name="full_name" required minLength={2} placeholder="Your full name"/></label><label>Phone number<input name="phone" required minLength={7} placeholder="+20"/></label><label>City<input name="city" required placeholder="Cairo"/></label><label>Delivery address<input name="address" required minLength={5} placeholder="Street, building, apartment"/></label><label>Payment method<select name="payment_method" defaultValue="cod"><option value="cod">Cash on delivery</option><option value="instapay">InstaPay transfer (manual confirmation)</option><option value="visa">Visa (gateway integration required)</option></select></label><label>Delivery notes (optional)<input name="notes" placeholder="Anything we should know?"/></label><button className="button button-dark full-button" type="submit">Place order <ArrowRight size={16}/></button></form></section></div>}
 
       {authOpen && <div className="modal-backdrop" onClick={() => setAuthOpen(false)}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setAuthOpen(false)}><X/></button><p className="eyebrow">WELCOME TO FORME</p><h2>{authMode === "login" ? "Good to see you." : "Start your standard."}</h2><p className="auth-sub">Your account keeps your orders and details in one place.</p><form onSubmit={handleAuth}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com"/></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} required placeholder="At least 8 characters"/></label><button className="button button-dark full-button" type="submit">{authMode === "login" ? "Sign in" : "Create account"} <ArrowRight size={16}/></button></form><button className="switch-auth" onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}>{authMode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}</button></section></div>}
 
