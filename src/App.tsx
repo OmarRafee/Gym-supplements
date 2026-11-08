@@ -14,6 +14,10 @@ type Product = {
   brand?: string | null;
   size_label?: string | null;
   servings?: number | null;
+  ingredients?: string | null;
+  directions?: string | null;
+  warnings?: string | null;
+  is_featured?: boolean;
   category: string;
   description: string;
   price: number;
@@ -183,6 +187,10 @@ function App() {
       stock: Number(form.get("stock")),
       reorder_level: Number(form.get("reorder_level") || 5),
       servings: form.get("servings") ? Number(form.get("servings")) : null,
+      ingredients: String(form.get("ingredients") ?? "").trim() || null,
+      directions: String(form.get("directions") ?? "").trim() || null,
+      warnings: String(form.get("warnings") ?? "").trim() || null,
+      is_featured: form.get("is_featured") === "on",
       image_url: String(form.get("image_url") ?? "").trim() || null,
       is_active: true,
     };
@@ -430,6 +438,10 @@ function App() {
                 <label>Servings<input name="servings" type="number" min="1" step="1" defaultValue={editingProduct?.servings ?? ""}/></label>
                 <label>Image URL<input name="image_url" type="url" defaultValue={editingProduct?.image_url ?? ""}/></label>
                 <label>Description<textarea name="description" rows={3} defaultValue={editingProduct?.description ?? ""}/></label>
+                <label>Ingredients<textarea name="ingredients" rows={3} defaultValue={editingProduct?.ingredients ?? ""}/></label>
+                <label>How to use<textarea name="directions" rows={2} defaultValue={editingProduct?.directions ?? ""}/></label>
+                <label>Warnings<textarea name="warnings" rows={2} defaultValue={editingProduct?.warnings ?? ""}/></label>
+                <label className="admin-check-label"><input name="is_featured" type="checkbox" defaultChecked={editingProduct?.is_featured ?? false}/> Feature on storefront</label>
                 <button className="admin-primary" type="submit">{editingProduct ? "Save changes" : "Create product"}</button>
               </form>
             </div>
