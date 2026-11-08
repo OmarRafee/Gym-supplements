@@ -67,7 +67,13 @@ function App() {
   const powderRef = useRef<HTMLDivElement>(null);
   const productStageRef = useRef<HTMLDivElement>(null);
   const [products, setProducts] = useState<Product[]>(fallbackProducts);
-  const [cart, setCart] = useState<Record<string, number>>({});
+  const [cart, setCart] = useState<Record<string, number>>(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem("forme-cart") || "{}");
+      if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
+      return Object.fromEntries(Object.entries(saved).filter(([key,value]) => typeof key === "string" && Number.isInteger(value) && Number(value) > 0 && Number(value) <= 50));
+    } catch { return {}; }
+  });
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -105,6 +111,10 @@ function App() {
   const [category, setCategory] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  useEffect(() => {
+    try { window.localStorage.setItem("forme-cart", JSON.stringify(cart)); } catch { /* Storage may be unavailable in private browsing. */ }
+  }, [cart]);
 
   useEffect(() => {
     if (!supabase) return;
