@@ -333,11 +333,16 @@ function App() {
     if (data) setProducts(data as Product[]);
   }
 
-  async function archiveAdminProduct(id: string) {
+  async function setAdminProductActive(id: string, currentActive: boolean) {
     if (!supabase || !isAdmin) return;
-    const { error } = await supabase.from("products").update({ is_active: false }).eq("id", id);
+    const { error } = await supabase.from("products").update({ is_active: !currentActive }).eq("id", id);
     if (error) setNotice(error.message);
-    else { setNotice("Product hidden from the storefront."); await loadAdminData(); setProducts((current) => current.filter((p) => p.id !== id)); }
+    else {
+      setNotice(currentActive ? "Product hidden from the storefront." : "Product restored to the storefront.");
+      await loadAdminData();
+      const { data } = await supabase.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url").eq("is_active", true).order("created_at");
+      setProducts((data ?? []) as Product[]);
+    }
   }
 
   async function updateAdminOrder(id: string, field: "status" | "payment_status" | "tracking_number" | "payment_reference", value: string) {
@@ -582,7 +587,7 @@ function App() {
                 <label>Slug<input name="slug" defaultValue={editingProduct?.slug ?? ""} placeholder="auto-generated if blank"/></label>
                 <label>SKU<input name="sku" defaultValue={editingProduct?.sku ?? ""}/></label>
                 <label>Brand<input name="brand" defaultValue={editingProduct?.brand ?? ""}/></label>
-                <label>Category<input name="category" required defaultValue={editingProduct?.category ?? ""} placeholder="Protein / Recovery"/></label>
+                <label>Category<select name="category" required defaultValue={editingProduct?.category ?? ""}><option value="">Choose category</option>{adminCategories.filter(item=>item.is_active).map(item=><option key={item.id} value={item.name}>{item.name}</option>)}</select></label>
                 <label>Size<input name="size_label" defaultValue={editingProduct?.size_label ?? ""} placeholder="2 lb / 900 g"/></label>
                 <div className="admin-form-grid"><label>Price (EGP)<input name="price" type="number" min="0" step="0.01" required defaultValue={editingProduct?.price ?? ""}/></label><label>Cost (EGP)<input name="cost_price" type="number" min="0" step="0.01" defaultValue={editingProduct?.cost_price ?? ""}/></label></div>
                 <div className="admin-form-grid"><label>Stock<input name="stock" type="number" min="0" step="1" required defaultValue={editingProduct?.stock ?? 0}/></label><label>Reorder at<input name="reorder_level" type="number" min="0" step="1" defaultValue={editingProduct?.reorder_level ?? 5}/></label></div>
@@ -598,7 +603,7 @@ function App() {
               </form>
             </div>
             <div className="admin-panel"><div className="admin-panel-head"><h2>Catalogue ({adminProducts.length})</h2></div>
-              {adminProducts.map(product => <div className="admin-row admin-product-row" key={product.id}><div><strong>{product.name}</strong><small>{product.sku || "No SKU"} · {product.category} · {product.stock} in stock</small></div><b>{money(Number(product.price))}</b><button onClick={() => { setEditingProduct(product); window.scrollTo({top:0,behavior:"smooth"}); }}>Edit</button><button className="admin-danger" onClick={() => void archiveAdminProduct(product.id)}>Hide</button></div>)}
+              {adminProducts.map(product => <div className="admin-row admin-product-row" key={product.id}><div><strong>{product.name}</strong><small>{product.sku || "No SKU"} · {product.category} · {product.stock} in stock</small></div><b>{money(Number(product.price))}</b><button onClick={() => { setEditingProduct(product); window.scrollTo({top:0,behavior:"smooth"}); }}>Edit</button><button className="admin-danger" onClick={() => void setAdminProductActive(product.id, product.is_active !== false)}>{product.is_active === false ? "Restore" : "Hide"}</button></div>)}
             </div>
           </div>}
           {adminTab === "orders" && <div className="admin-content"><div className="admin-panel"><div className="admin-panel-head"><h2>Orders ({adminOrders.length})</h2></div>
