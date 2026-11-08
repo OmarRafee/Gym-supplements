@@ -203,7 +203,11 @@ function App() {
     if (orderResult.error) setNotice("Orders: " + orderResult.error.message);
     else setAdminOrders((orderResult.data ?? []) as AdminOrder[]);
     if (customerResult.error) setNotice("Customers: " + customerResult.error.message);
-    else setAdminCustomers(customerResult.data ?? []);
+    else {
+      const { data: adminRows } = await supabase.from("admins").select("user_id");
+      const adminIds = new Set((adminRows ?? []).map((row:any) => row.user_id));
+      setAdminCustomers((customerResult.data ?? []).filter((customer:any) => !adminIds.has(customer.id)));
+    }
     if (inventoryResult.error) setNotice("Inventory: " + inventoryResult.error.message);
     else setAdminInventory(inventoryResult.data ?? []);
     if (couponResult?.error) setNotice("Discounts: " + couponResult.error.message);
