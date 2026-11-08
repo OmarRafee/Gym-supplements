@@ -264,7 +264,13 @@ function App() {
     const id = String(form.get("id") || "");
     const payload = { name, slug, description: String(form.get("description") || "").trim() || null, sort_order: Number(form.get("sort_order") || 0), is_active: true };
     const result = id ? await supabase.from("product_categories").update(payload).eq("id",id) : await supabase.from("product_categories").insert(payload);
-    if (result.error) setNotice(result.error.message); else { setNotice("Category saved."); setEditingCategory(null); formElement.reset(); await loadAdminData(); }
+    if (result.error) setNotice(result.error.message); else {
+      if (id && editingCategory && editingCategory.name !== name) {
+        const renameResult = await supabase.from("products").update({ category: name }).eq("category", editingCategory.name);
+        if (renameResult.error) { setNotice("Category saved, but products could not be renamed: " + renameResult.error.message); }
+      } else setNotice("Category saved.");
+      setEditingCategory(null); formElement.reset(); await loadAdminData();
+    }
   }
 
   async function toggleCategory(item: StoreCategory) {
@@ -537,7 +543,7 @@ function App() {
         <section className="closing-cta"><p className="eyebrow">THE NEXT REP STARTS HERE</p><h2>Show up.<br/><em>Every day.</em></h2><a href="#shop" className="button button-light">Shop the collection <ArrowRight size={16}/></a></section>
       </main>
 
-      <footer className="footer"><a className="wordmark" href="#top">FORME<span>®</span></a><span>PERFORMANCE, REFINED.</span><a href="#help">HELP & DELIVERY</a>{adminSettings.social?.instagram_url && <a href={adminSettings.social.instagram_url} target="_blank" rel="noreferrer">INSTAGRAM ↗</a>}<span>© 2026 FORME LABS</span><a href="#top">BACK TO TOP ↑</a></footer>
+      <footer className="footer"><a className="wordmark" href="#top">{adminSettings.store_profile?.store_name || "FORME"}<span>®</span></a><span>PERFORMANCE, REFINED.</span><a href="#help">HELP & DELIVERY</a>{adminSettings.social?.instagram_url && <a href={adminSettings.social.instagram_url} target="_blank" rel="noreferrer">INSTAGRAM ↗</a>}<span>© 2026 FORME LABS</span><a href="#top">BACK TO TOP ↑</a></footer>
 
       {cartOpen && <div className="drawer-backdrop" onClick={() => setCartOpen(false)}><aside className="drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-head"><div><p className="eyebrow">YOUR SELECTION</p><h2>The bag <span>({cartItems.length})</span></h2></div><button className="icon-button" onClick={() => setCartOpen(false)}><X/></button></div>
         {cartItems.length === 0 ? <div className="empty-state"><ShoppingBag size={30}/><p>Your bag is waiting for something good.</p><button className="underlined-link" onClick={() => setCartOpen(false)}>Explore products <ArrowRight size={14}/></button></div> : <>
