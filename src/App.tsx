@@ -66,7 +66,7 @@ function App() {
   const capRef = useRef<HTMLDivElement>(null);
   const powderRef = useRef<HTMLDivElement>(null);
   const productStageRef = useRef<HTMLDivElement>(null);
-  const [products, setProducts] = useState<Product[]>(fallbackProducts);
+  const [products, setProducts] = useState<Product[]>(isSupabaseConfigured ? [] : fallbackProducts);
   const [cart, setCart] = useState<Record<string, number>>(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem("forme-cart") || "{}");
@@ -124,6 +124,7 @@ function App() {
       .then(({ data, error }) => {
         if (!active) return;
         if (!error) setProducts((data ?? []) as Product[]);
+        else setNotice("The product catalogue could not be loaded. Please try again shortly.");
       });
     client.rpc("get_public_store_settings").then(({data}) => {
       if (active && data) setAdminSettings(data as Record<string,any>);
