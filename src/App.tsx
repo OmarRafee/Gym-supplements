@@ -100,12 +100,14 @@ function App() {
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
   const [editingCategory, setEditingCategory] = useState<StoreCategory | null>(null);
   const [category, setCategory] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
     const client = supabase;
     let active = true;
-    client.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url").eq("is_active", true).order("created_at")
+    client.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url,brand,size_label,servings,ingredients,directions,warnings").eq("is_active", true).order("created_at")
       .then(({ data, error }) => {
         if (!active) return;
         if (!error) setProducts((data ?? []) as Product[]);
@@ -335,7 +337,7 @@ function App() {
     formElement.reset();
     setNotice(editingProduct ? "Product updated." : "Product added.");
     await loadAdminData();
-    const { data } = await supabase.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url").eq("is_active", true).order("created_at");
+    const { data } = await supabase.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url,brand,size_label,servings,ingredients,directions,warnings").eq("is_active", true).order("created_at");
     if (data) setProducts(data as Product[]);
   }
 
@@ -372,7 +374,7 @@ function App() {
   }
 
   const categories = ["ALL", ...Array.from(new Set(products.map((product) => product.category?.toUpperCase() ?? "OTHER")))];
-  const visibleProducts = category === "ALL" ? products : products.filter((product) => product.category?.toUpperCase() === category);
+  const visibleProducts = products.filter((product) => (category === "ALL" || product.category?.toUpperCase() === category) && (!searchQuery.trim() || (product.name+" "+(product.description ?? "")+" "+(product.category ?? "")).toLowerCase().includes(searchQuery.trim().toLowerCase())));
   const cartItems = products.filter((product) => cart[product.id]).map((product) => ({ ...product, quantity: cart[product.id] }));
   const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shippingSettings = adminSettings.shipping ?? { standard_fee: 60, free_shipping_threshold: 1500, estimated_delivery: "2–5 business days" };
@@ -445,7 +447,11 @@ function App() {
       ? await supabase.auth.signUp({ email, password })
       : await supabase.auth.signInWithPassword({ email, password });
     if (result.error) setNotice(result.error.message);
-    else { setNotice(authMode === "signup" ? "Account created. Check your email if confirmation is enabled." : "Welcome back."); setAuthOpen(false); }
+    else {
+      setNotice(authMode === "signup" ? "Account created. Check your email if confirmation is enabled." : "Welcome back.");
+      setAuthOpen(false);
+      if (result.data.session && cartItems.length > 0) setCheckoutOpen(true);
+    }
   }
 
   return (
@@ -506,7 +512,7 @@ function App() {
 
         <section className="shop-section section-pad" id="shop">
           <div className="section-heading reveal"><div><p className="eyebrow">THE COLLECTION / 001—006</p><h2>Essentials for<br/><em>what’s next.</em></h2></div><p>Thoughtful formulas. Transparent ingredients.<br/>Made to earn their place in your routine.</p></div>
-          <div className="filter-row reveal"><div className="filters">{categories.map((item) => <button key={item} className={category === item ? "filter active" : "filter"} onClick={() => setCategory(item)}>{item}</button>)}</div><span>{visibleProducts.length.toString().padStart(2,"0")} PRODUCTS</span></div>
+          <div className="filter-row reveal"><div className="filters">{categories.map((item) => <button key={item} className={category === item ? "filter active" : "filter"} onClick={() => setCategory(item)}>{item}</button>)}</div><label className="shop-search"><span>SEARCH</span><input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Find your formula…"/></label><span>{visibleProducts.length.toString().padStart(2,"0")} PRODUCTS</span></div>
           <div className="product-grid">
             {visibleProducts.map((product, index) => <article className="product-card reveal" key={product.id}>
               <div className={`product-art art-${index % 3}`}>
@@ -516,7 +522,7 @@ function App() {
                 <span className="stock-note">{product.stock > 0 ? "IN STOCK" : "SOLD OUT"}</span>
               </div>
               <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{product.name}</h3></div><div className="product-pricing"><strong>{money(product.price)}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
-              <p className="product-description">{product.description}</p>
+              <p className="product-description">{product.description}</p><button className="product-details-link" onClick={() => setSelectedProduct(product)}>Product details <ArrowUpRight size={13}/></button>
             </article>)}
           </div>
         </section>
@@ -548,10 +554,11 @@ function App() {
       {cartOpen && <div className="drawer-backdrop" onClick={() => setCartOpen(false)}><aside className="drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-head"><div><p className="eyebrow">YOUR SELECTION</p><h2>The bag <span>({cartItems.length})</span></h2></div><button className="icon-button" onClick={() => setCartOpen(false)}><X/></button></div>
         {cartItems.length === 0 ? <div className="empty-state"><ShoppingBag size={30}/><p>Your bag is waiting for something good.</p><button className="underlined-link" onClick={() => setCartOpen(false)}>Explore products <ArrowRight size={14}/></button></div> : <>
           <div className="drawer-items">{cartItems.map((item) => <div className="drawer-item" key={item.id}><div className="drawer-thumb">F.</div><div className="drawer-item-info"><strong>{item.name}</strong><span>{money(item.price)}</span><div className="quantity-control"><button onClick={() => changeQuantity(item.id, -1)}><Minus size={13}/></button><span>{item.quantity}</span><button onClick={() => changeQuantity(item.id, 1)}><Plus size={13}/></button></div></div><strong>{money(item.price * item.quantity)}</strong></div>)}</div>
-          <div className="drawer-total"><span>SUBTOTAL</span><strong>{money(cartTotal)}</strong></div><p className="checkout-note">Shipping and payment details are confirmed at checkout.</p><button className="button button-dark full-button" onClick={() => { setCartOpen(false); setCheckoutOpen(true); }}>Continue to checkout <ArrowRight size={16}/></button>
+          <div className="drawer-total"><span>SUBTOTAL</span><strong>{money(cartTotal)}</strong></div><p className="checkout-note">Shipping and payment details are confirmed at checkout.</p><button className="button button-dark full-button" onClick={async () => { setCartOpen(false); const {data} = await supabase?.auth.getSession() ?? {data:{session:null}}; if (data.session) setCheckoutOpen(true); else { setAuthMode("login"); setAuthOpen(true); setNotice("Sign in or create an account to continue. Your bag is saved."); } }}>Continue to checkout <ArrowRight size={16}/></button>
         </>}</aside></div>}
 
 
+      {selectedProduct && <div className="modal-backdrop" onClick={() => setSelectedProduct(null)}><section className="product-detail-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setSelectedProduct(null)}><X/></button><div className="product-detail-art">{selectedProduct.image_url ? <img src={selectedProduct.image_url} alt={selectedProduct.name}/> : <div className="mini-tub"><span>{adminSettings.store_profile?.store_name || "FORME"}</span><strong>{selectedProduct.name.toUpperCase()}</strong><small>{selectedProduct.category?.toUpperCase()}</small></div>}</div><div className="product-detail-copy"><p className="eyebrow">{selectedProduct.category?.toUpperCase()} / PRODUCT DETAILS</p><h2>{selectedProduct.name}</h2>{selectedProduct.brand && <p className="product-brand">{selectedProduct.brand}</p>}<p>{selectedProduct.description}</p><strong className="product-detail-price">{money(selectedProduct.price)}</strong>{selectedProduct.size_label && <div className="product-detail-fact"><span>SIZE</span><b>{selectedProduct.size_label}</b></div>}{selectedProduct.servings && <div className="product-detail-fact"><span>SERVINGS</span><b>{selectedProduct.servings}</b></div>}{selectedProduct.ingredients && <div className="product-detail-section"><strong>Ingredients</strong><p>{selectedProduct.ingredients}</p></div>}{selectedProduct.directions && <div className="product-detail-section"><strong>How to use</strong><p>{selectedProduct.directions}</p></div>}{selectedProduct.warnings && <div className="product-detail-section"><strong>Important information</strong><p>{selectedProduct.warnings}</p></div>}<button className="button button-dark full-button" disabled={selectedProduct.stock<=0} onClick={()=>{addToCart(selectedProduct.id);setSelectedProduct(null);}}>Add to bag <ArrowRight size={16}/></button></div></section></div>}
       {checkoutOpen && <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}><section className="auth-modal checkout-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setCheckoutOpen(false)}><X/></button><p className="eyebrow">SECURE CHECKOUT</p><h2>Almost yours.</h2><p className="auth-sub">Delivery details · Your order is confirmed after you submit this form.</p>
           <div className="coupon-entry"><div><label htmlFor="checkout-coupon">Discount code</label><div className="coupon-entry-row"><input id="checkout-coupon" value={couponCode} onChange={e => {setCouponCode(e.target.value.toUpperCase());setCouponDiscount(0);setCouponMessage("");}} placeholder="Enter your code"/><button type="button" onClick={() => void previewCoupon()}>Apply</button></div></div>{couponMessage && <small className={couponDiscount > 0 ? "coupon-success" : "coupon-error"}>{couponMessage}</small>}</div>
           <div className="checkout-summary"><span>Subtotal <b>{money(cartTotal)}</b></span><span>Delivery <b>{estimatedShipping===0 ? "FREE" : money(estimatedShipping)}</b></span>{couponDiscount>0 && <span>Discount <b>−{money(couponDiscount)}</b></span>}<strong>Total <b>{money(checkoutTotal)}</b></strong></div>
