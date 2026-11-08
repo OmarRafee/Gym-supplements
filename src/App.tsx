@@ -612,6 +612,52 @@ function App() {
             {adminCustomers.map(customer => <div className="admin-row" key={customer.id}><div><strong>{customer.full_name || "Customer"}</strong><small>{customer.email || "No email"} · {customer.phone || "No phone"}</small><small>{customer.city || "No city"}</small><small>{customer.address || "No saved address"}</small></div><small>Joined {new Date(customer.created_at).toLocaleDateString()}</small></div>)}
             {!adminCustomers.length && <p className="admin-empty">No customer profiles yet.</p>}
           </div></div>}
+
+          {adminTab === "discounts" && <div className="admin-content admin-products-layout">
+            <div className="admin-panel admin-editor"><div className="admin-panel-head"><h2>{editingCoupon ? "Edit promotion" : "Create promotion"}</h2>{editingCoupon && <button type="button" onClick={() => setEditingCoupon(null)}>New code</button>}</div>
+              <form className="admin-product-form" key={editingCoupon?.id ?? "new-coupon"} onSubmit={saveAdminCoupon}>
+                <input type="hidden" name="id" value={editingCoupon?.id ?? ""}/>
+                <label>Discount code<input name="code" required maxLength={32} defaultValue={editingCoupon?.code ?? ""} placeholder="WELCOME10"/></label>
+                <label>Customer-facing description<input name="description" defaultValue={editingCoupon?.description ?? ""} placeholder="A little welcome gift"/></label>
+                <div className="admin-form-grid"><label>Discount type<select name="discount_type" defaultValue={editingCoupon?.discount_type ?? "percentage"}><option value="percentage">Percentage (%)</option><option value="fixed">Fixed amount (EGP)</option></select></label><label>Value<input name="discount_value" type="number" min="0.01" step="0.01" required defaultValue={editingCoupon?.discount_value ?? ""}/></label></div>
+                <div className="admin-form-grid"><label>Minimum basket (EGP)<input name="minimum_order" type="number" min="0" step="0.01" defaultValue={editingCoupon?.minimum_order ?? 0}/></label><label>Maximum discount (EGP)<input name="maximum_discount" type="number" min="0.01" step="0.01" defaultValue={editingCoupon?.maximum_discount ?? ""}/></label></div>
+                <label>Total uses allowed (blank = unlimited)<input name="usage_limit" type="number" min="1" step="1" defaultValue={editingCoupon?.usage_limit ?? ""}/></label>
+                <div className="admin-form-grid"><label>Starts at<input name="starts_at" type="datetime-local" defaultValue={toLocalDateTime(editingCoupon?.starts_at)}/></label><label>Ends at<input name="ends_at" type="datetime-local" defaultValue={toLocalDateTime(editingCoupon?.ends_at)}/></label></div>
+                <label className="admin-check-label"><input name="is_active" type="checkbox" defaultChecked={editingCoupon?.is_active ?? true}/> Promotion active</label>
+                <button className="admin-primary" type="submit">{editingCoupon ? "Save promotion" : "Create promotion"}</button>
+              </form>
+              <p className="admin-help">Promotions only work inside their scheduled dates. The database checks the code again at checkout and enforces its usage limit.</p>
+            </div>
+            <div className="admin-panel"><div className="admin-panel-head"><h2>Promotions ({adminCoupons.length})</h2></div>
+              {adminCoupons.map(coupon => <article className="admin-promo-card" key={coupon.id}><div className="admin-promo-head"><div><strong>{coupon.code}</strong><small>{coupon.description || "No description"}</small></div><span className={coupon.is_active ? "status-pill status-delivered" : "status-pill"}>{coupon.is_active ? "Active" : "Paused"}</span></div><p>{coupon.discount_type === "percentage" ? String(coupon.discount_value)+"% off" : money(Number(coupon.discount_value))+" off"} · Min. {money(Number(coupon.minimum_order))}</p><small>{coupon.starts_at ? new Date(coupon.starts_at).toLocaleString() : "Immediately"} → {coupon.ends_at ? new Date(coupon.ends_at).toLocaleString() : "No end date"}</small><div className="admin-promo-actions"><span>{coupon.used_count} used{coupon.usage_limit ? " / "+coupon.usage_limit : ""}</span><button onClick={() => setEditingCoupon(coupon)}>Edit</button><button onClick={() => void toggleCoupon(coupon)}>{coupon.is_active ? "Pause" : "Activate"}</button></div></article>)}
+              {!adminCoupons.length && <p className="admin-empty">No promotions yet. Create your first launch offer.</p>}
+            </div>
+          </div>}
+          {adminTab === "categories" && <div className="admin-content admin-products-layout">
+            <div className="admin-panel admin-editor"><div className="admin-panel-head"><h2>{editingCategory ? "Edit category" : "Add category"}</h2>{editingCategory && <button onClick={() => setEditingCategory(null)}>Cancel</button>}</div>
+              <form className="admin-product-form" key={editingCategory?.id ?? "new-category"} onSubmit={saveAdminCategory}>
+                <input type="hidden" name="id" value={editingCategory?.id ?? ""}/>
+                <label>Category name<input name="name" required defaultValue={editingCategory?.name ?? ""}/></label>
+                <label>URL slug<input name="slug" defaultValue={editingCategory?.slug ?? ""} placeholder="auto-generated"/></label>
+                <label>Description<textarea name="description" rows={3} defaultValue={editingCategory?.description ?? ""}/></label>
+                <label>Display order<input name="sort_order" type="number" step="1" defaultValue={editingCategory?.sort_order ?? 0}/></label>
+                <button className="admin-primary" type="submit">{editingCategory ? "Save category" : "Add category"}</button>
+              </form>
+            </div>
+            <div className="admin-panel"><div className="admin-panel-head"><h2>Store categories ({adminCategories.length})</h2></div>
+              {adminCategories.map(item => <div className="admin-row admin-product-row" key={item.id}><div><strong>{item.name}</strong><small>{item.slug} · {item.is_active ? "Visible" : "Hidden"}</small></div><button onClick={() => setEditingCategory(item)}>Edit</button><button onClick={() => void toggleCategory(item)}>{item.is_active ? "Hide" : "Restore"}</button></div>)}
+              {!adminCategories.length && <p className="admin-empty">Add categories to organise your catalogue.</p>}
+            </div>
+          </div>}
+          {adminTab === "settings" && <div className="admin-content"><div className="admin-panel"><div className="admin-panel-head"><h2>Store experience</h2><span className="status-pill">Live configuration</span></div>
+            <form className="admin-settings-form" key={JSON.stringify(adminSettings)} onSubmit={saveStoreSettings}>
+              <h3>Brand and customer support</h3><div className="admin-form-grid"><label>Store name<input name="store_name" defaultValue={adminSettings.store_profile?.store_name ?? "FORME"}/></label><label>Support email<input name="support_email" type="email" defaultValue={adminSettings.store_profile?.support_email ?? ""}/></label><label>Support phone<input name="support_phone" defaultValue={adminSettings.store_profile?.support_phone ?? ""}/></label><label>WhatsApp number<input name="whatsapp_number" defaultValue={adminSettings.social?.whatsapp_number ?? ""}/></label></div>
+              <h3>Delivery and checkout</h3><div className="admin-form-grid"><label>Standard delivery fee (EGP)<input name="standard_fee" type="number" min="0" step="0.01" defaultValue={adminSettings.shipping?.standard_fee ?? 60}/></label><label>Free delivery from (EGP)<input name="free_shipping_threshold" type="number" min="0" step="0.01" defaultValue={adminSettings.shipping?.free_shipping_threshold ?? 1500}/></label></div><label>Estimated delivery time<input name="estimated_delivery" defaultValue={adminSettings.shipping?.estimated_delivery ?? "2–5 business days"}/></label>
+              <h3>Homepage messaging</h3><label>Announcement bar<input name="announcement" defaultValue={adminSettings.homepage?.announcement ?? ""}/></label><label>Hero headline<input name="hero_title" defaultValue={adminSettings.homepage?.hero_title ?? "Make every rep count."}/></label><label>Hero supporting text<textarea name="hero_subtitle" rows={3} defaultValue={adminSettings.homepage?.hero_subtitle ?? ""}/></label>
+              <h3>Social links</h3><div className="admin-form-grid"><label>Instagram URL<input name="instagram_url" type="url" defaultValue={adminSettings.social?.instagram_url ?? ""}/></label><label>Facebook URL<input name="facebook_url" type="url" defaultValue={adminSettings.social?.facebook_url ?? ""}/></label></div>
+              <button className="admin-primary" type="submit">Save all store settings</button>
+            </form>
+          </div></div>}
           {adminTab === "inventory" && <div className="admin-content"><div className="admin-stat-grid"><article><span>TOTAL UNITS</span><strong>{adminProducts.reduce((s,p) => s + Number(p.stock || 0),0)}</strong></article><article><span>LOW STOCK ITEMS</span><strong>{adminProducts.filter(p => p.stock <= (p.reorder_level ?? 5)).length}</strong></article><article><span>RECORDED MOVEMENTS</span><strong>{adminInventory.length}</strong></article></div><div className="admin-panel"><div className="admin-panel-head"><h2>Stock movement history</h2></div>
             {adminInventory.map(move => <div className="admin-row" key={move.id}><div><strong>{move.products?.name || "Product"}</strong><small>{move.reason || move.movement_type} · {new Date(move.created_at).toLocaleString()}</small></div><span>{move.movement_type}</span><b className={move.quantity_change < 0 ? "admin-negative" : "admin-positive"}>{move.quantity_change > 0 ? "+" : ""}{move.quantity_change}</b><small>{move.stock_before} → {move.stock_after}</small></div>)}
             {!adminInventory.length && <p className="admin-empty">Inventory changes will be recorded here automatically.</p>}
