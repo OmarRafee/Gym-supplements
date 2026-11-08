@@ -39,6 +39,11 @@ type AdminOrder = {
   status: string;
   payment_method: string;
   payment_status: string;
+  payment_reference: string | null;
+  tracking_number: string | null;
+  subtotal: number;
+  shipping_fee: number;
+  discount_total: number;
   total: number;
   created_at: string;
   order_items?: { product_name: string; quantity: number; line_total: number }[];
@@ -152,7 +157,7 @@ function App() {
     setAdminLoading(true);
     const [productResult, orderResult, customerResult, inventoryResult] = await Promise.all([
       supabase.from("products").select("*").order("created_at", { ascending: false }),
-      supabase.from("orders").select("id,order_number,full_name,phone,address,city,status,payment_method,payment_status,total,created_at,order_items(product_name,quantity,line_total)").order("created_at", { ascending: false }).limit(100),
+      supabase.from("orders").select("id,order_number,full_name,phone,address,city,status,payment_method,payment_status,payment_reference,tracking_number,subtotal,shipping_fee,discount_total,total,created_at,order_items(product_name,quantity,line_total)").order("created_at", { ascending: false }).limit(100),
       supabase.from("profiles").select("id,email,full_name,phone,address,city,created_at").order("created_at", { ascending: false }).limit(100),
       supabase.from("inventory_movements").select("id,product_id,order_id,movement_type,quantity_change,stock_before,stock_after,reason,created_at,products(name,sku)").order("created_at", { ascending: false }).limit(100),
     ]);
@@ -217,11 +222,22 @@ function App() {
     else { setNotice("Product hidden from the storefront."); await loadAdminData(); setProducts((current) => current.filter((p) => p.id !== id)); }
   }
 
-  async function updateAdminOrder(id: string, field: "status" | "payment_status", value: string) {
+  async function updateAdminOrder(id: string, field: "status" | "payment_status" | "tracking_number" | "payment_reference", value: string) {
     if (!supabase || !isAdmin) return;
-    const { error } = await supabase.from("orders").update({ [field]: value }).eq("id", id);
+    const { error } = await supabase.from("orders").update({ [field]: value || null }).eq("id", id);
     if (error) setNotice(error.message);
     else { setNotice("Order updated."); await loadAdminData(); }
+  }
+
+  async function updateAdminShipping(id: string, value: string) {
+    if (!supabase || !isAdmin) return;
+    const order = adminOrders.find(item => item.id === id);
+    const shipping = Number(value);
+    if (!order || !Number.isFinite(shipping) || shipping < 0) { setNotice("Enter a valid non-negative shipping fee."); return; }
+    const total = Number(order.subtotal) + shipping - Number(order.discount_total || 0);
+    const { error } = await supabase.from("orders").update({ shipping_fee: shipping, total }).eq("id", id);
+    if (error) setNotice(error.message);
+    else { setNotice("Shipping fee and order total updated."); await loadAdminData(); }
   }
 
   const categories = ["ALL", ...Array.from(new Set(products.map((product) => product.category?.toUpperCase() ?? "OTHER")))];
@@ -452,7 +468,7 @@ function App() {
           {adminTab === "orders" && <div className="admin-content"><div className="admin-panel"><div className="admin-panel-head"><h2>Orders ({adminOrders.length})</h2></div>
             {adminOrders.map(order => <article className="admin-order-card" key={order.id}><div className="admin-order-head"><div><strong>{order.order_number || order.id.slice(0,8)}</strong><small>{order.full_name} · {order.phone} · {order.city}</small><small>{order.address}</small></div><b>{money(Number(order.total))}</b></div>
               <div className="admin-order-lines">{(order.order_items ?? []).map((item,i) => <span key={i}>{item.product_name} × {item.quantity} <b>{money(Number(item.line_total))}</b></span>)}</div>
-              <div className="admin-order-controls"><label>Order status<select value={order.status} onChange={e => void updateAdminOrder(order.id,"status",e.target.value)}>{["pending","confirmed","shipped","delivered","cancelled"].map(s => <option key={s}>{s}</option>)}</select></label><label>Payment status<select value={order.payment_status} onChange={e => void updateAdminOrder(order.id,"payment_status",e.target.value)}>{["pending","awaiting_confirmation","paid","failed","refunded"].map(s => <option key={s}>{s}</option>)}</select></label><span>{order.payment_method.toUpperCase()} · {new Date(order.created_at).toLocaleString()}</span></div>
+              <div className="admin-order-controls"><label>Order status<select value={order.status} onChange={e => void updateAdminOrder(order.id,"status",e.target.value)}>{["pending","confirmed","shipped","delivered","cancelled"].map(s => <option key={s}>{s}</option>)}</select></label><label>Payment status<select value={order.payment_status} onChange={e => void updateAdminOrder(order.id,"payment_status",e.target.value)}>{["pending","awaiting_confirmation","paid","failed","refunded"].map(s => <option key={s}>{s}</option>)}</select></label><label>Shipping fee (EGP)<input type="number" min="0" step="0.01" defaultValue={order.shipping_fee ?? 0} onBlur={e => { if (Number(e.target.value) !== Number(order.shipping_fee ?? 0)) void updateAdminShipping(order.id,e.target.value); }}/></label><label>Tracking number<input defaultValue={order.tracking_number ?? ""} placeholder="Courier tracking ID" onBlur={e => { if (e.target.value !== (order.tracking_number ?? "")) void updateAdminOrder(order.id,"tracking_number",e.target.value); }}/></label><label>InstaPay reference<input defaultValue={order.payment_reference ?? ""} placeholder="Transfer reference" onBlur={e => { if (e.target.value !== (order.payment_reference ?? "")) void updateAdminOrder(order.id,"payment_reference",e.target.value); }}/></label><span>{order.payment_method.toUpperCase()} · {new Date(order.created_at).toLocaleString()}</span></div>
             </article>)}
             {!adminOrders.length && <p className="admin-empty">No orders have been placed yet.</p>}
           </div></div>}
