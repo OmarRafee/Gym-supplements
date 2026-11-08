@@ -551,6 +551,7 @@ function App() {
               <p className="product-description">{product.description}</p><button className="product-details-link" onClick={() => setSelectedProduct(product)}>Product details <ArrowUpRight size={13}/></button>
             </article>)}
           </div>
+          {visibleProducts.length === 0 && <div className="catalog-empty"><span>FORME / THE COLLECTION</span><h3>{searchQuery ? "Nothing found this time." : "The first collection is being prepared."}</h3><p>{searchQuery ? "Try another product name or clear your search." : "We are preparing the product range. Check back shortly."}</p>{searchQuery && <button onClick={()=>setSearchQuery("")}>Clear search</button>}</div>}
         </section>
 
         <section className="trust-strip" aria-label="Store promises"><div><span>01</span><strong>Clear product information</strong><small>Know what you are choosing.</small></div><div><span>02</span><strong>Local delivery</strong><small>Egypt-wide delivery options.</small></div><div><span>03</span><strong>Human support</strong><small>Questions? We are here to help.</small></div><div><span>04</span><strong>Secure checkout</strong><small>Your order is recorded safely.</small></div></section>
