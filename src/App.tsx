@@ -89,7 +89,7 @@ function App() {
       if (!active) return;
       setUserEmail(userEmailValue);
       if (!userId) { setIsAdmin(false); setAdminOpen(false); return; }
-      const { data: adminRow, error: adminError } = await supabase
+      const { data: adminRow, error: adminError } = await client
         .from("admins").select("user_id").eq("user_id", userId).maybeSingle();
       if (active) setIsAdmin(!adminError && Boolean(adminRow));
     };
