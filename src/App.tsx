@@ -29,6 +29,8 @@ type Product = {
   is_active?: boolean;
 };
 
+type Coupon = { id:string; code:string; description:string|null; discount_type:"percentage"|"fixed"; discount_value:number; minimum_order:number; maximum_discount:number|null; usage_limit:number|null; used_count:number; starts_at:string|null; ends_at:string|null; is_active:boolean };
+type StoreCategory = { id:string; name:string; slug:string; description:string|null; image_url:string|null; sort_order:number; is_active:boolean };
 type AdminOrder = {
   id: string;
   order_number: string | null;
@@ -79,11 +81,19 @@ function App() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [adminTab, setAdminTab] = useState<"overview" | "products" | "orders" | "customers" | "inventory">("overview");
+  const [adminTab, setAdminTab] = useState<"overview" | "products" | "orders" | "customers" | "inventory" | "discounts" | "categories" | "settings">("overview");
   const [adminProducts, setAdminProducts] = useState<Product[]>([]);
   const [adminOrders, setAdminOrders] = useState<AdminOrder[]>([]);
   const [adminCustomers, setAdminCustomers] = useState<any[]>([]);
   const [adminInventory, setAdminInventory] = useState<any[]>([]);
+  const [adminCoupons, setAdminCoupons] = useState<Coupon[]>([]);
+  const [adminCategories, setAdminCategories] = useState<StoreCategory[]>([]);
+  const [adminSettings, setAdminSettings] = useState<Record<string, any>>({});
+  const [dashboardStats, setDashboardStats] = useState<Record<string, number>>({});
+  const [couponCode, setCouponCode] = useState("");
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponMessage, setCouponMessage] = useState("");
+  const [orderConfirmation, setOrderConfirmation] = useState<{order_number:string|null,total:number}|null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [category, setCategory] = useState("ALL");
@@ -92,11 +102,14 @@ function App() {
     if (!supabase) return;
     const client = supabase;
     let active = true;
-    client.from("products").select("id,name,category,description,price,stock,image_url").eq("is_active", true).order("created_at")
+    client.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url").eq("is_active", true).order("created_at")
       .then(({ data, error }) => {
         if (!active) return;
         if (!error) setProducts((data ?? []) as Product[]);
       });
+    client.from("store_settings").select("setting_key,setting_value").then(({data}) => {
+      if (active && data) setAdminSettings(Object.fromEntries(data.map((item:any) => [item.setting_key,item.setting_value])));
+    });
     const syncUser = async (userId: string | null, userEmailValue: string | null) => {
       if (!active) return;
       setUserEmail(userEmailValue);
@@ -155,11 +168,15 @@ function App() {
   async function loadAdminData() {
     if (!supabase || !isAdmin) return;
     setAdminLoading(true);
-    const [productResult, orderResult, customerResult, inventoryResult] = await Promise.all([
+    const [productResult, orderResult, customerResult, inventoryResult, couponResult, categoryResult, settingsResult, statsResult] = await Promise.all([
       supabase.from("products").select("*").order("created_at", { ascending: false }),
       supabase.from("orders").select("id,order_number,full_name,phone,address,city,status,payment_method,payment_status,payment_reference,tracking_number,subtotal,shipping_fee,discount_total,total,created_at,order_items(product_name,quantity,line_total)").order("created_at", { ascending: false }).limit(100),
       supabase.from("profiles").select("id,email,full_name,phone,address,city,created_at").order("created_at", { ascending: false }).limit(100),
       supabase.from("inventory_movements").select("id,product_id,order_id,movement_type,quantity_change,stock_before,stock_after,reason,created_at,products(name,sku)").order("created_at", { ascending: false }).limit(100),
+      supabase.from("coupons").select("*").order("created_at", { ascending: false }),
+      supabase.from("product_categories").select("*").order("sort_order").order("name"),
+      supabase.from("store_settings").select("setting_key,setting_value"),
+      supabase.rpc("admin_dashboard_stats"),
     ]);
     if (productResult.error) setNotice("Products: " + productResult.error.message);
     else setAdminProducts((productResult.data ?? []) as Product[]);
@@ -169,6 +186,13 @@ function App() {
     else setAdminCustomers(customerResult.data ?? []);
     if (inventoryResult.error) setNotice("Inventory: " + inventoryResult.error.message);
     else setAdminInventory(inventoryResult.data ?? []);
+    if (couponResult?.error) setNotice("Discounts: " + couponResult.error.message);
+    else setAdminCoupons((couponResult?.data ?? []) as Coupon[]);
+    if (categoryResult?.error) setNotice("Categories: " + categoryResult.error.message);
+    else setAdminCategories((categoryResult?.data ?? []) as StoreCategory[]);
+    if (settingsResult?.data) setAdminSettings(Object.fromEntries(settingsResult.data.map((item:any) => [item.setting_key,item.setting_value])));
+    if (statsResult?.error) setNotice("Dashboard: " + statsResult.error.message);
+    else setDashboardStats(statsResult?.data ?? {});
     setAdminLoading(false);
   }
 
@@ -277,11 +301,14 @@ function App() {
       p_payment_method: String(form.get("payment_method") ?? "cod"),
       p_notes: String(form.get("notes") ?? ""),
     };
-    const { data, error } = await supabase.rpc("place_order", payload);
+    const { data, error } = await supabase.rpc("place_order", { ...payload, p_coupon_code: couponDiscount > 0 ? couponCode.trim() : null });
     if (error) { setNotice(error.message); return; }
+    const { data: placedOrder } = await supabase.from("orders").select("order_number,total").eq("id", data).maybeSingle();
     setCart({});
+    setCouponCode(""); setCouponDiscount(0); setCouponMessage("");
     setCheckoutOpen(false);
-    setNotice("Order placed. Reference: " + String(data).slice(0, 8));
+    setOrderConfirmation({ order_number: placedOrder?.order_number ?? String(data).slice(0,8), total: Number(placedOrder?.total ?? cartTotal) });
+    setNotice("Your order has been received. We’ll contact you to confirm delivery.");
   }
 
   async function sendPasswordReset() {
