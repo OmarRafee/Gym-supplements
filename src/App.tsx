@@ -144,7 +144,7 @@ function App() {
     const [productResult, orderResult, customerResult, inventoryResult] = await Promise.all([
       supabase.from("products").select("*").order("created_at", { ascending: false }),
       supabase.from("orders").select("id,order_number,full_name,phone,address,city,status,payment_method,payment_status,total,created_at,order_items(product_name,quantity,line_total)").order("created_at", { ascending: false }).limit(100),
-      supabase.from("profiles").select("id,full_name,phone,address,city,created_at").order("created_at", { ascending: false }).limit(100),
+      supabase.from("profiles").select("id,email,full_name,phone,address,city,created_at").order("created_at", { ascending: false }).limit(100),
       supabase.from("inventory_movements").select("id,product_id,order_id,movement_type,quantity_change,stock_before,stock_after,reason,created_at,products(name,sku)").order("created_at", { ascending: false }).limit(100),
     ]);
     if (productResult.error) setNotice("Products: " + productResult.error.message);
@@ -161,7 +161,8 @@ function App() {
   async function saveAdminProduct(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !isAdmin) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const name = String(form.get("name") ?? "").trim();
     const slug = String(form.get("slug") ?? "").trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const payload = {
@@ -189,7 +190,7 @@ function App() {
       : await supabase.from("products").insert(payload);
     if (result.error) { setNotice(result.error.message); return; }
     setEditingProduct(null);
-    event.currentTarget.reset();
+    formElement.reset();
     setNotice(editingProduct ? "Product updated." : "Product added.");
     await loadAdminData();
     const { data } = await supabase.from("products").select("id,name,category,description,price,stock,image_url").eq("is_active", true).order("created_at");
@@ -419,7 +420,7 @@ function App() {
             {!adminOrders.length && <p className="admin-empty">No orders have been placed yet.</p>}
           </div></div>}
           {adminTab === "customers" && <div className="admin-content"><div className="admin-panel"><div className="admin-panel-head"><h2>Customer profiles ({adminCustomers.length})</h2></div>
-            {adminCustomers.map(customer => <div className="admin-row" key={customer.id}><div><strong>{customer.full_name || "Customer"}</strong><small>{customer.phone || "No phone"} · {customer.city || "No city"}</small><small>{customer.address || "No saved address"}</small></div><small>Joined {new Date(customer.created_at).toLocaleDateString()}</small></div>)}
+            {adminCustomers.map(customer => <div className="admin-row" key={customer.id}><div><strong>{customer.full_name || "Customer"}</strong><small>{customer.email || "No email"} · {customer.phone || "No phone"}</small><small>{customer.city || "No city"}</small><small>{customer.address || "No saved address"}</small></div><small>Joined {new Date(customer.created_at).toLocaleDateString()}</small></div>)}
             {!adminCustomers.length && <p className="admin-empty">No customer profiles yet.</p>}
           </div></div>}
           {adminTab === "inventory" && <div className="admin-content"><div className="admin-stat-grid"><article><span>TOTAL UNITS</span><strong>{adminProducts.reduce((s,p) => s + Number(p.stock || 0),0)}</strong></article><article><span>LOW STOCK ITEMS</span><strong>{adminProducts.filter(p => p.stock <= (p.reorder_level ?? 5)).length}</strong></article><article><span>RECORDED MOVEMENTS</span><strong>{adminInventory.length}</strong></article></div><div className="admin-panel"><div className="admin-panel-head"><h2>Stock movement history</h2></div>
