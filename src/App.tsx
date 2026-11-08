@@ -96,7 +96,7 @@ function App() {
   const [adminCoupons, setAdminCoupons] = useState<Coupon[]>([]);
   const [adminCategories, setAdminCategories] = useState<StoreCategory[]>([]);
   const [adminSettings, setAdminSettings] = useState<Record<string, any>>({});
-  const [dashboardStats, setDashboardStats] = useState<Record<string, number>>({});
+  const [dashboardStats, setDashboardStats] = useState<Record<string, any>>({});
   const [couponCode, setCouponCode] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponMessage, setCouponMessage] = useState("");
