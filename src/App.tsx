@@ -509,11 +509,13 @@ function App() {
                 <button className="quick-add" aria-label={`Add ${product.name} to bag`} onClick={() => addToCart(product.id)}><Plus size={18}/></button>
                 <span className="stock-note">{product.stock > 0 ? "IN STOCK" : "SOLD OUT"}</span>
               </div>
-              <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{product.name}</h3></div><strong>{money(product.price)}</strong></div>
+              <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{product.name}</h3></div><div className="product-pricing"><strong>{money(product.price)}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
               <p className="product-description">{product.description}</p>
             </article>)}
           </div>
         </section>
+
+        <section className="trust-strip" aria-label="Store promises"><div><span>01</span><strong>Clear product information</strong><small>Know what you are choosing.</small></div><div><span>02</span><strong>Local delivery</strong><small>Egypt-wide delivery options.</small></div><div><span>03</span><strong>Human support</strong><small>Questions? We are here to help.</small></div><div><span>04</span><strong>Secure checkout</strong><small>Your order is recorded safely.</small></div></section>
 
         <section className="manifesto section-pad" id="philosophy">
           <div className="manifesto-mark reveal">F<span>®</span></div>
@@ -530,10 +532,12 @@ function App() {
           </div>
         </section>
 
+        <section className="faq-section section-pad" id="help"><div className="faq-intro"><p className="eyebrow">GOOD TO KNOW</p><h2>Questions,<br/><em>answered.</em></h2><p>Everything you need to shop with confidence.</p>{adminSettings.store_profile?.support_email && <a className="underlined-link" href={"mailto:"+adminSettings.store_profile.support_email}>Contact support <ArrowUpRight size={15}/></a>}</div><div className="faq-list"><details><summary>How do I choose the right supplement?<span>+</span></summary><p>Start with your training goal, read each product’s ingredients and serving information, and follow the label directions. Supplements are not a replacement for a balanced diet or professional medical advice.</p></details><details><summary>When will my order arrive?<span>+</span></summary><p>Our current estimated delivery window is {adminSettings.shipping?.estimated_delivery || "2–5 business days"}. We will contact you to confirm your order and delivery details.</p></details><details><summary>Which payment methods are available?<span>+</span></summary><p>Cash on delivery and InstaPay are currently supported. InstaPay transfers are checked manually before an order is marked as paid. Card payments will be added after a payment gateway is connected.</p></details><details><summary>Can I change or cancel an order?<span>+</span></summary><p>Contact our support team as soon as possible with your order reference. Changes depend on whether the order has already been prepared or dispatched.</p></details><details><summary>How do returns work?<span>+</span></summary><p>Please contact support before sending anything back. We will confirm the applicable return conditions for the product and its packaging.</p></details></div></section>
+
         <section className="closing-cta"><p className="eyebrow">THE NEXT REP STARTS HERE</p><h2>Show up.<br/><em>Every day.</em></h2><a href="#shop" className="button button-light">Shop the collection <ArrowRight size={16}/></a></section>
       </main>
 
-      <footer className="footer"><a className="wordmark" href="#top">FORME<span>®</span></a><span>PERFORMANCE, REFINED.</span><span>© 2026 FORME LABS</span><a href="#top">BACK TO TOP ↑</a></footer>
+      <footer className="footer"><a className="wordmark" href="#top">FORME<span>®</span></a><span>PERFORMANCE, REFINED.</span><a href="#help">HELP & DELIVERY</a>{adminSettings.social?.instagram_url && <a href={adminSettings.social.instagram_url} target="_blank" rel="noreferrer">INSTAGRAM ↗</a>}<span>© 2026 FORME LABS</span><a href="#top">BACK TO TOP ↑</a></footer>
 
       {cartOpen && <div className="drawer-backdrop" onClick={() => setCartOpen(false)}><aside className="drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-head"><div><p className="eyebrow">YOUR SELECTION</p><h2>The bag <span>({cartItems.length})</span></h2></div><button className="icon-button" onClick={() => setCartOpen(false)}><X/></button></div>
         {cartItems.length === 0 ? <div className="empty-state"><ShoppingBag size={30}/><p>Your bag is waiting for something good.</p><button className="underlined-link" onClick={() => setCartOpen(false)}>Explore products <ArrowRight size={14}/></button></div> : <>
