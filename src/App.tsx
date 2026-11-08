@@ -95,6 +95,9 @@ function App() {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponMessage, setCouponMessage] = useState("");
   const [orderConfirmation, setOrderConfirmation] = useState<{order_number:string|null,total:number}|null>(null);
+  const [myOrdersOpen, setMyOrdersOpen] = useState(false);
+  const [myOrders, setMyOrders] = useState<any[]>([]);
+  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
@@ -201,6 +204,19 @@ function App() {
     setAdminLoading(false);
   }
 
+
+  async function loadMyOrders() {
+    if (!supabase) return;
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) { setAuthMode("login"); setAuthOpen(true); return; }
+    setMyOrdersLoading(true);
+    const { data, error } = await supabase.from("orders")
+      .select("id,order_number,status,payment_status,payment_method,total,created_at,tracking_number,order_items(product_name,quantity,line_total)")
+      .order("created_at",{ascending:false}).limit(30);
+    if (error) setNotice(error.message); else setMyOrders(data ?? []);
+    setMyOrdersLoading(false);
+    setMyOrdersOpen(true);
+  }
 
   async function previewCoupon() {
     if (!supabase || !couponCode.trim()) { setCouponMessage("Enter a code first."); return; }
@@ -466,7 +482,7 @@ function App() {
           </nav>
           <div className="nav-actions">
             {isAdmin && <button className="text-button admin-nav-button" onClick={() => { setAdminOpen(true); setAdminTab("overview"); void loadAdminData(); }}>ADMIN</button>}
-            <button className="text-button account-button" onClick={() => { setAuthMode("login"); setAuthOpen(true); }}>{userEmail ? userEmail.split("@")[0] : "Account"}</button>
+            <button className="text-button account-button" onClick={() => { if (userEmail) void loadMyOrders(); else { setAuthMode("login"); setAuthOpen(true); } }}>{userEmail ? "My account" : "Account"}</button>
             <button className="bag-button" aria-label="Open cart" onClick={() => setCartOpen(true)}><ShoppingBag size={17}/><span>Bag ({Object.values(cart).reduce((a,b) => a+b, 0)})</span></button>
             <button className="menu-button" aria-label="Toggle menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X/> : <Menu/>}</button>
           </div>
@@ -558,6 +574,7 @@ function App() {
         </>}</aside></div>}
 
 
+      {myOrdersOpen && <div className="modal-backdrop" onClick={()=>setMyOrdersOpen(false)}><section className="auth-modal my-orders-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setMyOrdersOpen(false)}><X/></button><p className="eyebrow">YOUR FORME ACCOUNT</p><h2>Your orders.</h2><p className="auth-sub">{userEmail}</p>{myOrdersLoading ? <p className="admin-loading">Loading your orders…</p> : myOrders.length ? <div className="my-orders-list">{myOrders.map(order=><article key={order.id}><div className="my-order-heading"><strong>{order.order_number || order.id.slice(0,8)}</strong><span className={"status-pill status-"+order.status}>{order.status}</span></div><small>{new Date(order.created_at).toLocaleDateString()} · {order.payment_method.toUpperCase()}</small>{(order.order_items ?? []).map((item:any,i:number)=><p key={i}>{item.product_name} × {item.quantity}</p>)}<div className="my-order-foot"><b>{money(Number(order.total))}</b><span>{order.payment_status.replaceAll("_"," ")}</span></div>{order.tracking_number && <small>Tracking: {order.tracking_number}</small>}</article>)}</div> : <p className="admin-empty">You haven't placed an order yet. Your next step starts in the collection.</p>}<button className="switch-auth" onClick={async()=>{await supabase?.auth.signOut();setMyOrdersOpen(false);setNotice("You have signed out.");}}>Sign out</button></section></div>}
       {selectedProduct && <div className="modal-backdrop" onClick={() => setSelectedProduct(null)}><section className="product-detail-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setSelectedProduct(null)}><X/></button><div className="product-detail-art">{selectedProduct.image_url ? <img src={selectedProduct.image_url} alt={selectedProduct.name}/> : <div className="mini-tub"><span>{adminSettings.store_profile?.store_name || "FORME"}</span><strong>{selectedProduct.name.toUpperCase()}</strong><small>{selectedProduct.category?.toUpperCase()}</small></div>}</div><div className="product-detail-copy"><p className="eyebrow">{selectedProduct.category?.toUpperCase()} / PRODUCT DETAILS</p><h2>{selectedProduct.name}</h2>{selectedProduct.brand && <p className="product-brand">{selectedProduct.brand}</p>}<p>{selectedProduct.description}</p><strong className="product-detail-price">{money(selectedProduct.price)}</strong>{selectedProduct.size_label && <div className="product-detail-fact"><span>SIZE</span><b>{selectedProduct.size_label}</b></div>}{selectedProduct.servings && <div className="product-detail-fact"><span>SERVINGS</span><b>{selectedProduct.servings}</b></div>}{selectedProduct.ingredients && <div className="product-detail-section"><strong>Ingredients</strong><p>{selectedProduct.ingredients}</p></div>}{selectedProduct.directions && <div className="product-detail-section"><strong>How to use</strong><p>{selectedProduct.directions}</p></div>}{selectedProduct.warnings && <div className="product-detail-section"><strong>Important information</strong><p>{selectedProduct.warnings}</p></div>}<button className="button button-dark full-button" disabled={selectedProduct.stock<=0} onClick={()=>{addToCart(selectedProduct.id);setSelectedProduct(null);}}>Add to bag <ArrowRight size={16}/></button></div></section></div>}
       {checkoutOpen && <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}><section className="auth-modal checkout-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setCheckoutOpen(false)}><X/></button><p className="eyebrow">SECURE CHECKOUT</p><h2>Almost yours.</h2><p className="auth-sub">Delivery details · Your order is confirmed after you submit this form.</p>
           <div className="coupon-entry"><div><label htmlFor="checkout-coupon">Discount code</label><div className="coupon-entry-row"><input id="checkout-coupon" value={couponCode} onChange={e => {setCouponCode(e.target.value.toUpperCase());setCouponDiscount(0);setCouponMessage("");}} placeholder="Enter your code"/><button type="button" onClick={() => void previewCoupon()}>Apply</button></div></div>{couponMessage && <small className={couponDiscount > 0 ? "coupon-success" : "coupon-error"}>{couponMessage}</small>}</div>
