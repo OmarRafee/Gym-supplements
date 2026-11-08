@@ -78,8 +78,9 @@ function App() {
 
   useEffect(() => {
     if (!supabase) return;
+    const client = supabase;
     let active = true;
-    supabase.from("products").select("id,name,category,description,price,stock,image_url").eq("is_active", true).order("created_at")
+    client.from("products").select("id,name,category,description,price,stock,image_url").eq("is_active", true).order("created_at")
       .then(({ data, error }) => {
         if (!active) return;
         if (!error && data?.length) setProducts(data as Product[]);
@@ -92,10 +93,10 @@ function App() {
         .from("admins").select("user_id").eq("user_id", userId).maybeSingle();
       if (active) setIsAdmin(!adminError && Boolean(adminRow));
     };
-    supabase.auth.getSession().then(({ data }) => {
+    client.auth.getSession().then(({ data }) => {
       void syncUser(data.session?.user.id ?? null, data.session?.user.email ?? null);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
       void syncUser(session?.user.id ?? null, session?.user.email ?? null);
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
