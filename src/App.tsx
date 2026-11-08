@@ -71,7 +71,7 @@ function App() {
     try {
       const saved = JSON.parse(window.localStorage.getItem("forme-cart") || "{}");
       if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
-      return Object.fromEntries(Object.entries(saved).filter(([key,value]) => typeof key === "string" && Number.isInteger(value) && Number(value) > 0 && Number(value) <= 50));
+      return Object.fromEntries(Object.entries(saved).filter(([key,value]) => typeof key === "string" && Number.isInteger(value) && Number(value) > 0 && Number(value) <= 50)) as Record<string, number>;
     } catch { return {}; }
   });
   const [cartOpen, setCartOpen] = useState(false);
