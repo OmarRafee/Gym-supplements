@@ -61,6 +61,9 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [recoveryMode, setRecoveryMode] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [notice, setNotice] = useState("");
@@ -96,7 +99,8 @@ function App() {
     client.auth.getSession().then(({ data }) => {
       void syncUser(data.session?.user.id ?? null, data.session?.user.email ?? null);
     });
-    const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = client.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
       void syncUser(session?.user.id ?? null, session?.user.email ?? null);
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
@@ -254,6 +258,24 @@ function App() {
     setNotice("Order placed. Reference: " + String(data).slice(0, 8));
   }
 
+  async function sendPasswordReset() {
+    if (!supabase || !email.trim()) { setNotice("Enter your account email first."); return; }
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+    if (error) setNotice(error.message);
+    else { setAuthOpen(false); setNotice("Password reset email sent. Open the link in your inbox to choose a new password."); }
+  }
+
+  async function handlePasswordRecovery(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase) return;
+    if (newPassword.length < 8) { setNotice("Use at least 8 characters for your new password."); return; }
+    if (newPassword !== confirmPassword) { setNotice("The passwords do not match."); return; }
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) setNotice(error.message);
+    else { setRecoveryMode(false); setNewPassword(""); setConfirmPassword(""); setNotice("Your password has been updated. You can now access the admin dashboard."); }
+  }
+
   async function handleAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) { setNotice("Connect your Supabase environment variables to enable accounts."); return; }
@@ -365,9 +387,11 @@ function App() {
 
       {checkoutOpen && <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}><section className="auth-modal checkout-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setCheckoutOpen(false)}><X/></button><p className="eyebrow">SECURE CHECKOUT</p><h2>Almost yours.</h2><p className="auth-sub">Delivery details · Total {money(cartTotal)}</p><form onSubmit={handleCheckout}><label>Full name<input name="full_name" required minLength={2} placeholder="Your full name"/></label><label>Phone number<input name="phone" required minLength={7} placeholder="+20"/></label><label>City<input name="city" required placeholder="Cairo"/></label><label>Delivery address<input name="address" required minLength={5} placeholder="Street, building, apartment"/></label><label>Payment method<select name="payment_method" defaultValue="cod"><option value="cod">Cash on delivery</option><option value="instapay">InstaPay transfer (manual confirmation)</option></select></label><label>Delivery notes (optional)<input name="notes" placeholder="Anything we should know?"/></label><button className="button button-dark full-button" type="submit">Place order <ArrowRight size={16}/></button></form></section></div>}
 
-      {authOpen && <div className="modal-backdrop" onClick={() => setAuthOpen(false)}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setAuthOpen(false)}><X/></button><p className="eyebrow">WELCOME TO FORME</p><h2>{authMode === "login" ? "Good to see you." : "Start your standard."}</h2><p className="auth-sub">Your account keeps your orders and details in one place.</p><form onSubmit={handleAuth}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com"/></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={authMode === "signup" ? 8 : 6} required placeholder={authMode === "signup" ? "At least 8 characters" : "Your password"}/></label><button className="button button-dark full-button" type="submit">{authMode === "login" ? "Sign in" : "Create account"} <ArrowRight size={16}/></button></form><button className="switch-auth" onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}>{authMode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}</button></section></div>}
+      {authOpen && <div className="modal-backdrop" onClick={() => setAuthOpen(false)}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setAuthOpen(false)}><X/></button><p className="eyebrow">WELCOME TO FORME</p><h2>{authMode === "login" ? "Good to see you." : "Start your standard."}</h2><p className="auth-sub">Your account keeps your orders and details in one place.</p><form onSubmit={handleAuth}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com"/></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={authMode === "signup" ? 8 : 6} required placeholder={authMode === "signup" ? "At least 8 characters" : "Your password"}/></label><button className="button button-dark full-button" type="submit">{authMode === "login" ? "Sign in" : "Create account"} <ArrowRight size={16}/></button></form>{authMode === "login" && <button className="switch-auth" onClick={() => void sendPasswordReset()}>Forgot password? Send me a reset link</button>}<button className="switch-auth" onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}>{authMode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}</button></section></div>}
 
 
+
+      {recoveryMode && <div className="modal-backdrop"><section className="auth-modal"><p className="eyebrow">ACCOUNT SECURITY</p><h2>Set a new password.</h2><p className="auth-sub">Choose a strong password with at least 8 characters. Avoid short or easily guessed passwords.</p><form onSubmit={handlePasswordRecovery}><label>New password<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} required autoComplete="new-password"/></label><label>Confirm new password<input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} minLength={8} required autoComplete="new-password"/></label><button className="button button-dark full-button" type="submit">Update password <ArrowRight size={16}/></button></form></section></div>}
       {adminOpen && isAdmin && <div className="admin-overlay">
         <aside className="admin-sidebar">
           <div className="admin-brand"><span className="admin-brand-mark">F.</span><div><strong>FORME</strong><small>STORE CONTROL</small></div></div>
