@@ -446,7 +446,7 @@ function App() {
     <>
       <header className="site-header">
         <div className="nav-inner">
-          <a className="wordmark" href="#top">FORME<span>®</span></a>
+          <a className="wordmark" href="#top">{adminSettings.store_profile?.store_name || "FORME"}<span>®</span></a>
           <nav className={menuOpen ? "main-nav is-open" : "main-nav"}>
             <a href="#shop" onClick={() => setMenuOpen(false)}>Shop</a>
             <a href="#philosophy" onClick={() => setMenuOpen(false)}>Our standard</a>
@@ -478,7 +478,7 @@ function App() {
                 <div className="bottle-cap" ref={capRef}><div className="cap-ridges"/></div>
                 <div className="bottle">
                   <div className="bottle-neck"/>
-                  <div className="bottle-label"><span className="label-brand">FORME</span><span className="label-rule"/><strong>WHEY<br/>PROTEIN</strong><small>GOLD STANDARD · 2 LB</small><span className="label-bottom">24G PROTEIN / SERVING</span></div>
+                  <div className="bottle-label"><span className="label-brand">{adminSettings.store_profile?.store_name || "FORME"}</span><span className="label-rule"/><strong>WHEY<br/>PROTEIN</strong><small>GOLD STANDARD · 2 LB</small><span className="label-bottom">24G PROTEIN / SERVING</span></div>
                 </div>
               </div>
               <div className="powder-cloud" ref={powderRef}>
@@ -532,7 +532,7 @@ function App() {
           </div>
         </section>
 
-        <section className="faq-section section-pad" id="help"><div className="faq-intro"><p className="eyebrow">GOOD TO KNOW</p><h2>Questions,<br/><em>answered.</em></h2><p>Everything you need to shop with confidence.</p>{adminSettings.store_profile?.support_email && <a className="underlined-link" href={"mailto:"+adminSettings.store_profile.support_email}>Contact support <ArrowUpRight size={15}/></a>}</div><div className="faq-list"><details><summary>How do I choose the right supplement?<span>+</span></summary><p>Start with your training goal, read each product’s ingredients and serving information, and follow the label directions. Supplements are not a replacement for a balanced diet or professional medical advice.</p></details><details><summary>When will my order arrive?<span>+</span></summary><p>Our current estimated delivery window is {adminSettings.shipping?.estimated_delivery || "2–5 business days"}. We will contact you to confirm your order and delivery details.</p></details><details><summary>Which payment methods are available?<span>+</span></summary><p>Cash on delivery and InstaPay are currently supported. InstaPay transfers are checked manually before an order is marked as paid. Card payments will be added after a payment gateway is connected.</p></details><details><summary>Can I change or cancel an order?<span>+</span></summary><p>Contact our support team as soon as possible with your order reference. Changes depend on whether the order has already been prepared or dispatched.</p></details><details><summary>How do returns work?<span>+</span></summary><p>Please contact support before sending anything back. We will confirm the applicable return conditions for the product and its packaging.</p></details></div></section>
+        <section className="faq-section section-pad" id="help"><div className="faq-intro"><p className="eyebrow">GOOD TO KNOW</p><h2>Questions,<br/><em>answered.</em></h2><p>Everything you need to shop with confidence.</p>{adminSettings.store_profile?.support_email && <a className="underlined-link" href={"mailto:"+adminSettings.store_profile.support_email}>Email support <ArrowUpRight size={15}/></a>}{adminSettings.social?.whatsapp_number && <a className="underlined-link" href={"https://wa.me/"+String(adminSettings.social.whatsapp_number).replace(/[^0-9]/g,"")} target="_blank" rel="noreferrer">Chat on WhatsApp <ArrowUpRight size={15}/></a>}</div><div className="faq-list"><details><summary>How do I choose the right supplement?<span>+</span></summary><p>Start with your training goal, read each product’s ingredients and serving information, and follow the label directions. Supplements are not a replacement for a balanced diet or professional medical advice.</p></details><details><summary>When will my order arrive?<span>+</span></summary><p>Our current estimated delivery window is {adminSettings.shipping?.estimated_delivery || "2–5 business days"}. We will contact you to confirm your order and delivery details.</p></details><details><summary>Which payment methods are available?<span>+</span></summary><p>Cash on delivery and InstaPay are currently supported. InstaPay transfers are checked manually before an order is marked as paid. Card payments will be added after a payment gateway is connected.</p></details><details><summary>Can I change or cancel an order?<span>+</span></summary><p>Contact our support team as soon as possible with your order reference. Changes depend on whether the order has already been prepared or dispatched.</p></details><details><summary>How do returns work?<span>+</span></summary><p>Please contact support before sending anything back. We will confirm the applicable return conditions for the product and its packaging.</p></details></div></section>
 
         <section className="closing-cta"><p className="eyebrow">THE NEXT REP STARTS HERE</p><h2>Show up.<br/><em>Every day.</em></h2><a href="#shop" className="button button-light">Shop the collection <ArrowRight size={16}/></a></section>
       </main>
@@ -559,7 +559,7 @@ function App() {
       {recoveryMode && <div className="modal-backdrop"><section className="auth-modal"><p className="eyebrow">ACCOUNT SECURITY</p><h2>Set a new password.</h2><p className="auth-sub">Choose a strong password with at least 8 characters. Avoid short or easily guessed passwords.</p><form onSubmit={handlePasswordRecovery}><label>New password<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} required autoComplete="new-password"/></label><label>Confirm new password<input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} minLength={8} required autoComplete="new-password"/></label><button className="button button-dark full-button" type="submit">Update password <ArrowRight size={16}/></button></form></section></div>}
       {adminOpen && isAdmin && <div className="admin-overlay">
         <aside className="admin-sidebar">
-          <div className="admin-brand"><span className="admin-brand-mark">F.</span><div><strong>FORME</strong><small>STORE CONTROL</small></div></div>
+          <div className="admin-brand"><span className="admin-brand-mark">F.</span><div><strong>{adminSettings.store_profile?.store_name || "FORME"}</strong><small>STORE CONTROL</small></div></div>
           <div className="admin-nav">
             {(["overview","products","orders","customers","inventory","discounts","categories","settings"] as const).map((tab) => <button key={tab} className={adminTab === tab ? "active" : ""} onClick={() => setAdminTab(tab)}>{tab}</button>)}
           </div>
@@ -586,7 +586,7 @@ function App() {
           </div>}
           {adminTab === "products" && <div className="admin-content admin-products-layout">
             <div className="admin-panel admin-editor"><div className="admin-panel-head"><h2>{editingProduct ? "Edit product" : "Add a product"}</h2>{editingProduct && <button onClick={() => setEditingProduct(null)}>Cancel edit</button>}</div>
-              <form className="admin-product-form" onSubmit={saveAdminProduct}>
+              <form className="admin-product-form" key={editingProduct?.id ?? "new-product"} onSubmit={saveAdminProduct}>
                 <label>Product name<input name="name" required defaultValue={editingProduct?.name ?? ""}/></label>
                 <label>Slug<input name="slug" defaultValue={editingProduct?.slug ?? ""} placeholder="auto-generated if blank"/></label>
                 <label>SKU<input name="sku" defaultValue={editingProduct?.sku ?? ""}/></label>
