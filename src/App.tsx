@@ -100,7 +100,7 @@ function App() {
   const [couponCode, setCouponCode] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponMessage, setCouponMessage] = useState("");
-  const [orderConfirmation, setOrderConfirmation] = useState<{order_number:string|null,total:number}|null>(null);
+  const [orderConfirmation, setOrderConfirmation] = useState<{order_number:string|null,total:number,subtotal:number,shipping_fee:number,discount_total:number,payment_method:string,full_name:string,phone:string,city:string,address:string,items:{name:string,quantity:number,unit_price:number,line_total:number}[]}|null>(null);
   const [myOrdersOpen, setMyOrdersOpen] = useState(false);
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
@@ -440,11 +440,23 @@ function App() {
     };
     const { data, error } = await supabase.rpc("place_order", { ...payload, p_coupon_code: couponDiscount > 0 ? couponCode.trim() : null });
     if (error) { setNotice(error.message); return; }
-    const { data: placedOrder } = await supabase.from("orders").select("order_number,total").eq("id", data).maybeSingle();
+    const { data: placedOrder } = await supabase.from("orders").select("order_number,total,subtotal,shipping_fee,discount_total").eq("id", data).maybeSingle();
     setCart({});
     setCouponCode(""); setCouponDiscount(0); setCouponMessage("");
     setCheckoutOpen(false);
-    setOrderConfirmation({ order_number: placedOrder?.order_number ?? String(data).slice(0,8), total: Number(placedOrder?.total ?? cartTotal) });
+    setOrderConfirmation({
+      order_number: placedOrder?.order_number ?? String(data).slice(0,8),
+      total: Number(placedOrder?.total ?? checkoutTotal),
+      subtotal: Number(placedOrder?.subtotal ?? cartTotal),
+      shipping_fee: Number(placedOrder?.shipping_fee ?? estimatedShipping),
+      discount_total: Number(placedOrder?.discount_total ?? couponDiscount),
+      payment_method: String(form.get("payment_method") ?? "cod"),
+      full_name: String(form.get("full_name") ?? ""),
+      phone: String(form.get("phone") ?? ""),
+      city: String(form.get("city") ?? ""),
+      address: String(form.get("address") ?? ""),
+      items: cartItems.map(item=>({name:item.name,quantity:item.quantity,unit_price:Number(item.price),line_total:Number(item.price)*item.quantity}))
+    });
     setNotice("Your order has been received. We’ll contact you to confirm delivery.");
   }
 
@@ -592,7 +604,7 @@ function App() {
           <div className="checkout-summary"><span>Subtotal <b>{money(cartTotal)}</b></span><span>Delivery <b>{estimatedShipping===0 ? "FREE" : money(estimatedShipping)}</b></span>{couponDiscount>0 && <span>Discount <b>−{money(couponDiscount)}</b></span>}<strong>Total <b>{money(checkoutTotal)}</b></strong></div>
           <form onSubmit={handleCheckout}><label>Full name<input name="full_name" required minLength={2} placeholder="Your full name"/></label><label>Phone number<input name="phone" required minLength={7} placeholder="+20"/></label><label>City<input name="city" required placeholder="Cairo"/></label><label>Delivery address<input name="address" required minLength={5} placeholder="Street, building, apartment"/></label><label>Payment method<select name="payment_method" defaultValue="cod"><option value="cod">Cash on delivery</option><option value="instapay">InstaPay transfer (manual confirmation)</option></select></label><label>Delivery notes (optional)<input name="notes" placeholder="Anything we should know?"/></label><button className="button button-dark full-button" type="submit">Place order <ArrowRight size={16}/></button></form></section></div>}
 
-      {orderConfirmation && <div className="modal-backdrop"><section className="auth-modal order-success-modal"><div className="success-mark"><Check size={28}/></div><p className="eyebrow">ORDER RECEIVED</p><h2>You're one step closer.</h2><p className="auth-sub">Your order has been saved. Our team will contact you to confirm delivery details.</p><div className="order-reference"><span>ORDER REFERENCE</span><strong>{orderConfirmation.order_number || "Received"}</strong><b>{money(orderConfirmation.total)}</b></div><button className="button button-dark full-button" onClick={() => setOrderConfirmation(null)}>Continue shopping <ArrowRight size={16}/></button></section></div>}
+      {orderConfirmation && <div className="modal-backdrop"><section className="auth-modal order-success-modal"><div className="success-mark no-print"><Check size={28}/></div><p className="eyebrow">FORME / ORDER RECEIPT</p><h2 className="no-print">Your order is received.</h2><p className="auth-sub no-print">Your order has been saved. Our team will contact you to confirm delivery details.</p><div className="receipt-header"><strong>{adminSettings.legal?.legal_name || adminSettings.store_profile?.store_name || "FORME"}</strong><span>{adminSettings.legal?.business_address || "Seller address to be completed in store settings"}</span><span>CR: {adminSettings.legal?.commercial_register || "Add commercial registration"}</span><span>Tax: {adminSettings.legal?.tax_number || "Add tax registration"}</span><span>{adminSettings.store_profile?.support_email || ""} {adminSettings.store_profile?.support_phone || ""}</span></div><div className="order-reference"><span>ORDER / INVOICE REFERENCE</span><strong>{orderConfirmation.order_number || "Received"}</strong><small>{new Date().toLocaleString()}</small></div><div className="receipt-customer"><strong>Customer</strong><span>{orderConfirmation.full_name}</span><span>{orderConfirmation.phone}</span><span>{orderConfirmation.address}, {orderConfirmation.city}</span></div><div className="receipt-lines">{orderConfirmation.items.map((item,i)=><div key={i}><span>{item.name} × {item.quantity}</span><b>{money(item.line_total)}</b></div>)}</div><div className="receipt-totals"><span>Subtotal <b>{money(orderConfirmation.subtotal)}</b></span><span>Delivery <b>{orderConfirmation.shipping_fee===0?"FREE":money(orderConfirmation.shipping_fee)}</b></span>{orderConfirmation.discount_total>0&&<span>Discount <b>−{money(orderConfirmation.discount_total)}</b></span>}<strong>Total due <b>{money(orderConfirmation.total)}</b></strong><small>Payment: {orderConfirmation.payment_method.toUpperCase()} · Estimated delivery: {adminSettings.shipping?.estimated_delivery || "To be confirmed"}</small></div><p className="receipt-policy">{adminSettings.legal?.return_policy || "Please contact the store for return and exchange terms. Complete this policy in Store Settings before launch."}</p><div className="receipt-actions no-print"><button className="button button-dark" onClick={()=>window.print()}>Print receipt</button><button className="button button-light" onClick={() => setOrderConfirmation(null)}>Continue shopping <ArrowRight size={16}/></button></div></section></div>}
       {authOpen && <div className="modal-backdrop" onClick={() => setAuthOpen(false)}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setAuthOpen(false)}><X/></button><p className="eyebrow">WELCOME TO FORME</p><h2>{authMode === "login" ? "Good to see you." : "Start your standard."}</h2><p className="auth-sub">Your account keeps your orders and details in one place.</p><form onSubmit={handleAuth}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com"/></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={authMode === "signup" ? 8 : 6} required placeholder={authMode === "signup" ? "At least 8 characters" : "Your password"}/></label><button className="button button-dark full-button" type="submit">{authMode === "login" ? "Sign in" : "Create account"} <ArrowRight size={16}/></button></form>{authMode === "login" && <button className="switch-auth" onClick={() => void sendPasswordReset()}>Forgot password? Send me a reset link</button>}<button className="switch-auth" onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}>{authMode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}</button></section></div>}
 
 
