@@ -193,8 +193,8 @@ function App() {
         if (bottleRef.current && creatinePhotoRef.current) {
           const story = gsap.timeline({ scrollTrigger: { trigger: heroRef.current, start: "top top", end: "+=85%", scrub: 0.55, pin: true, anticipatePin: 1 } });
           story.to(".hero-copy", { yPercent: -8, opacity: 0.28, duration: 0.3 }, 0)
-            .to(bottleRef.current, { rotate: -6, x: -14, y: 14, scale: 1.045, duration: 0.62, ease: "power2.inOut" }, 0.12)
-            .to(creatinePhotoRef.current, { y: -34, x: 8, rotate: -1.5, scale: 1.08, duration: 0.62, ease: "power2.inOut" }, 0.12)
+            .to(bottleRef.current, { rotate: 18, x: -10, y: 8, scale: 1.12, transformOrigin: "50% 55%", duration: 1, ease: "none" }, 0.12)
+            .to(creatinePhotoRef.current, { y: -18, scale: 1.04, duration: 1, ease: "none" }, 0.12)
             .to(".hero-product-label", { y: -14, opacity: 0.55, duration: 0.45 }, 0.25);
         }
         gsap.utils.toArray<HTMLElement>(".shelf-tier-track").forEach(track => {
@@ -639,10 +639,10 @@ function App() {
             </div>
             <div className="hero-visual">
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
-              <div className="hero-product-label"><span>01 / DAILY PERFORMANCE</span><span>CREATINE MONOHYDRATE · 350 G</span></div>
+              <div className="hero-product-label"><span>01 / MUSASHI RECOVER</span><span>HIGH PROTEIN + CREATINE · 900 G</span></div>
               <div className="creatine-photo-stage" ref={bottleRef}>
-                <img ref={creatinePhotoRef} className="creatine-powder-photo" src={import.meta.env.BASE_URL + "creatine-powder.webp"} alt="White creatine monohydrate powder spilling from an open black tub into a measuring scoop" fetchPriority="high" />
-                <span className="photo-caption">PURE CREATINE · FINE WHITE POWDER</span>
+                <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={import.meta.env.BASE_URL + "musashi-product.webp"} alt="Musashi Recover high protein and creatine 900 gram tub" fetchPriority="high" />
+                <span className="photo-caption">MUSASHI RECOVER · 900 G</span>
               </div>
               <span className="scroll-cue"><ArrowDown size={14}/> SCROLL TO EXPLORE THE FORMULA</span>
             </div>
