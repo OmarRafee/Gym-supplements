@@ -298,3 +298,35 @@ body{background:#07090b;color:#f2f4ed}
   .hero:after{display:none}
   .bottle-wrap,.bottle-cap,.powder-cloud,.stage-products,.stage-product{transition:none!important}
 }
+
+/* Musashi bottle hero, shelf display and active product discovery */
+.announcement-bar{display:none!important}
+.musashi-wrap{width:min(360px,42vw);height:min(480px,58vw);display:grid;place-items:center;position:relative;transform-origin:50% 15%;filter:drop-shadow(0 35px 34px rgba(0,0,0,.68))}
+.musashi-bottle-photo,.musashi-cap-photo{position:absolute;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.musashi-bottle-photo{clip-path:inset(17% 0 0 0)}
+.musashi-cap-photo{clip-path:inset(0 0 82% 0);transform-origin:50% 88%;z-index:3}
+.hero-visual{perspective:1100px}
+.gym-shelf-grid{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:42px 22px;padding:26px 20px 42px;background:linear-gradient(180deg,#101719,#080c0e 78%,#131b1d);border:1px solid rgba(200,255,0,.18);box-shadow:inset 0 0 80px rgba(200,255,0,.035)}
+.gym-shelf-grid:before,.gym-shelf-grid:after{content:"";position:absolute;left:0;right:0;height:18px;z-index:-1;background:linear-gradient(180deg,#697477 0%,#293234 28%,#111719 62%,#050708 100%);border-top:1px solid rgba(220,255,180,.25);border-bottom:2px solid #030506;box-shadow:0 15px 18px #0009}
+.gym-shelf-grid:before{top:calc(50% - 9px)}
+.gym-shelf-grid:after{bottom:0}
+.gym-shelf-grid .product-card{position:relative;padding:12px 12px 18px;background:linear-gradient(150deg,#1d2729,#0b1012 72%);border:1px solid rgba(255,255,255,.1);box-shadow:0 14px 22px #0007;transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .3s,box-shadow .3s;transform-style:preserve-3d}
+.gym-shelf-grid .product-card:hover{transform:translateY(-12px) rotateX(2deg);border-color:rgba(200,255,0,.6);box-shadow:0 24px 32px #000a,0 0 22px rgba(200,255,0,.09)}
+.gym-shelf-grid .product-art{height:280px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at 50% 45%,#394447 0%,#1a2427 44%,#0a0e10 78%);border:1px solid rgba(255,255,255,.07)}
+.gym-shelf-grid .product-art img{width:90%;height:90%;object-fit:contain;filter:drop-shadow(0 16px 15px #0009);transition:transform .45s}
+.gym-shelf-grid .product-card:hover .product-art img{transform:translateY(-7px) scale(1.06)}
+.gym-shelf-grid .mini-tub{width:132px;height:174px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;border-radius:18px 18px 14px 14px;box-shadow:inset 8px 0 14px #ffffff12,inset -9px 0 18px #0009,0 18px 22px #0009;transform:perspective(500px) rotateY(-8deg)}
+.gym-shelf-grid .mini-tub:before{content:"";width:105%;height:24px;margin-top:-22px;border-radius:7px;background:repeating-linear-gradient(90deg,#080b0c 0 3px,#596365 4px 5px,#111718 6px 8px);border:1px solid #778184}
+.gym-shelf-grid .mini-tub span{color:#c8ff00;font-size:18px;font-weight:900;letter-spacing:1px}
+.gym-shelf-grid .mini-tub strong{max-width:110px;text-align:center;font-size:13px;line-height:1.05}
+.gym-shelf-grid .mini-tub small{font-size:8px;letter-spacing:1px}
+.gym-shelf-grid .product-meta{align-items:flex-start;gap:10px;padding-top:16px}
+.gym-shelf-grid .product-meta h3{font-size:14px}
+.gym-shelf-grid .quick-add{width:38px;height:38px;border-radius:50%;box-shadow:0 4px 12px #0008;transition:transform .25s}
+.gym-shelf-grid .quick-add:hover{transform:rotate(90deg) scale(1.12)}
+.gym-shelf-grid .stock-note{background:#c8ff00;color:#080b0b;padding:5px 8px;font-weight:900}
+.gym-shelf-grid .product-description{min-height:38px}
+.gym-shelf-grid .product-details-link{color:#c8ff00;border-color:#c8ff00}
+@media(max-width:900px){.gym-shelf-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:34px 14px}.gym-shelf-grid:before{top:50%}.gym-shelf-grid .product-art{height:230px}}
+@media(max-width:560px){.musashi-wrap{width:78vw;height:98vw;max-height:390px}.gym-shelf-grid{grid-template-columns:1fr;padding:14px 12px 32px;gap:22px}.gym-shelf-grid:before{display:none}.gym-shelf-grid .product-art{height:250px}.gym-shelf-grid .product-card{padding:10px}.gym-shelf-grid .product-meta{align-items:center}}
+@media(prefers-reduced-motion:reduce){.gym-shelf-grid .product-card,.gym-shelf-grid .product-art img{transition:none}}
