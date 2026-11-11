@@ -177,6 +177,7 @@ function App() {
         });
         story.to(".hero-copy", { yPercent: -10, opacity: 0.28, duration: 0.3 }, 0)
           .to(capRef.current, { y: -58, x: -66, rotate: -78, duration: 0.3, ease: "power2.inOut" }, 0.16)
+          .to(".bottle-mouth", { opacity: 1, duration: 0.12 }, 0.34)
           .to(bottleRef.current, { rotate: -23, x: -14, y: 20, duration: 0.5, ease: "power2.inOut" }, 0.3)
           .to(powderRef.current, { opacity: 1, scale: 1, duration: 0.28, ease: "power2.out" }, 0.43)
           .to(".powder-pour", { opacity: 1, scaleY: 1, duration: 0.32, ease: "power2.out" }, 0.46)
