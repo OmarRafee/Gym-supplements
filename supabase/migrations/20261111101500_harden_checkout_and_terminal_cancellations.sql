@@ -28,7 +28,6 @@ declare
  v_coupon public.coupons%rowtype;
  v_payment_status text;
  v_shipping_settings jsonb;
- v_payment_settings jsonb;
 begin
  if v_user_id is null then raise exception 'Please sign in before placing your order.'; end if;
  if p_payment_method <> 'cod' then raise exception 'Cash on delivery is the only active payment method. InstaPay and Visa will be added later.'; end if;
