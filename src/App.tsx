@@ -82,6 +82,7 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const checkoutLockRef = useRef(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -478,7 +479,7 @@ function App() {
     const city = String(form.get("city") ?? "").trim();
     const chosenPayment = String(form.get("payment_method") ?? "cod");
 
-    if (isSubmittingOrder) return;
+    if (isSubmittingOrder || checkoutLockRef.current) return;
     if (!supabase) { setNotice("Connect Supabase to place an order."); return; }
     if (!checkoutItems.length || Object.keys(cart).length !== checkoutItems.length) {
       setNotice("Your bag contains unavailable items. Remove them and try again."); return;
@@ -497,6 +498,7 @@ function App() {
       setNotice("Choose a supported payment method."); return;
     }
 
+    checkoutLockRef.current = true;
     setIsSubmittingOrder(true);
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -546,7 +548,7 @@ function App() {
 
       // The RPC is the source of truth for price, discount, shipping and stock.
       const { data: placedOrder, error: receiptError } = await supabase.from("orders")
-        .select("order_number,total,subtotal,shipping_fee,discount_total")
+        .select("order_number,total,subtotal,shipping_fee,discount_total,order_items(product_name,quantity,unit_price,line_total)")
         .eq("id", orderId).maybeSingle();
 
       setCart({});
@@ -561,10 +563,7 @@ function App() {
         discount_total: Number(placedOrder?.discount_total ?? finalDiscount),
         payment_method: chosenPayment,
         full_name: fullName, phone, city, address,
-        items: checkoutItems.map(item => ({
-          name: item.name, quantity: item.quantity, unit_price: Number(item.price),
-          line_total: Number(item.price) * item.quantity
-        }))
+        items: placedOrder?.order_items?.length ? placedOrder.order_items.map((item:any) => ({ name:item.product_name, quantity:Number(item.quantity), unit_price:Number(item.unit_price), line_total:Number(item.line_total) })) : checkoutItems.map(item => ({ name:item.name, quantity:item.quantity, unit_price:Number(item.price), line_total:Number(item.price)*item.quantity }))
       });
       setNotice(receiptError
         ? "Your order was placed. You can find its full details in My Account."
@@ -573,6 +572,7 @@ function App() {
     } catch (error) {
       setNotice(error instanceof Error ? "Checkout failed: " + error.message : "Checkout failed. Please try again.");
     } finally {
+      checkoutLockRef.current = false;
       setIsSubmittingOrder(false);
     }
   }
