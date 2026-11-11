@@ -194,8 +194,8 @@ function App() {
         if (bottleRef.current && creatinePhotoRef.current) {
           const story = gsap.timeline({ scrollTrigger: { trigger: heroRef.current, start: "top top", end: "+=85%", scrub: 0.55, pin: true, anticipatePin: 1 } });
           story.to(".hero-copy", { yPercent: -8, opacity: 0.28, duration: 0.3 }, 0)
-            .to(bottleRef.current, { rotate: 18, x: -10, y: 8, scale: 1.12, transformOrigin: "50% 55%", duration: 1, ease: "none" }, 0.12)
-            .to(creatinePhotoRef.current, { y: -18, scale: 1.04, duration: 1, ease: "none" }, 0.12)
+            .to(bottleRef.current, { rotate: 5, x: -8, y: -4, scale: 1.06, transformOrigin: "50% 50%", duration: 1, ease: "none" }, 0.12)
+            .to(creatinePhotoRef.current, { rotationY: 28, rotationX: -7, rotationZ: -5, y: -24, scale: 1.08, transformPerspective: 1200, transformOrigin: "50% 52%", duration: 1, ease: "none" }, 0.12)
             .to(".hero-product-label", { y: -14, opacity: 0.55, duration: 0.45 }, 0.25);
         }
         gsap.utils.toArray<HTMLElement>(".shelf-tier-track").forEach(track => {
@@ -642,7 +642,7 @@ function App() {
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
               <div className="hero-product-label"><span>01 / MUSASHI RECOVER</span><span>HIGH PROTEIN + CREATINE · 900 G</span></div>
               <div className="creatine-photo-stage" ref={bottleRef}>
-                <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={import.meta.env.BASE_URL + "creatine-powder.webp"} alt="Creatine powder product visual" fetchPriority="high" />
+                <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={import.meta.env.BASE_URL + "musashi-product.webp"} alt="Musashi Recover high protein and creatine 900 gram tub" fetchPriority="high" />
                 <span className="photo-caption">MUSASHI RECOVER · 900 G</span>
               </div>
               <span className="scroll-cue"><ArrowDown size={14}/> SCROLL TO EXPLORE THE FORMULA</span>
