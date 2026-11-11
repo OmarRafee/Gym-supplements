@@ -1,3 +1,6 @@
+import "./styles-redesign.css";
+import "./product-image-fallback.css";
+import "./musashi-hero.css";
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowRight, ArrowUpRight, Check, Dumbbell, Flame, Menu, Minus, Plus, ShoppingBag, Target, X, Zap } from "lucide-react";
 import { gsap } from "gsap";
@@ -191,8 +194,8 @@ function App() {
         if (bottleRef.current && creatinePhotoRef.current) {
           const story = gsap.timeline({ scrollTrigger: { trigger: heroRef.current, start: "top top", end: "+=85%", scrub: 0.55, pin: true, anticipatePin: 1 } });
           story.to(".hero-copy", { yPercent: -8, opacity: 0.28, duration: 0.3 }, 0)
-            .to(bottleRef.current, { rotate: -6, x: -14, y: 14, scale: 1.045, duration: 0.62, ease: "power2.inOut" }, 0.12)
-            .to(creatinePhotoRef.current, { y: -34, x: 8, rotate: -1.5, scale: 1.08, duration: 0.62, ease: "power2.inOut" }, 0.12)
+            .to(bottleRef.current, { rotate: 18, x: -10, y: 8, scale: 1.12, transformOrigin: "50% 55%", duration: 1, ease: "none" }, 0.12)
+            .to(creatinePhotoRef.current, { y: -18, scale: 1.04, duration: 1, ease: "none" }, 0.12)
             .to(".hero-product-label", { y: -14, opacity: 0.55, duration: 0.45 }, 0.25);
         }
         gsap.utils.toArray<HTMLElement>(".shelf-tier-track").forEach(track => {
@@ -490,7 +493,7 @@ function App() {
     if (fullName.length < 2 || phone.replace(/[^0-9]/g, "").length < 7 || address.length < 5 || city.length < 2) {
       setNotice("Please enter a valid full name, phone number, city and complete delivery address."); return;
     }
-    if (!["cod", "instapay"].includes(chosenPayment)) {
+    if (chosenPayment !== "cod") {
       setNotice("Choose a supported payment method."); return;
     }
 
@@ -637,10 +640,10 @@ function App() {
             </div>
             <div className="hero-visual">
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
-              <div className="hero-product-label"><span>01 / DAILY PERFORMANCE</span><span>CREATINE MONOHYDRATE · 350 G</span></div>
+              <div className="hero-product-label"><span>01 / MUSASHI RECOVER</span><span>HIGH PROTEIN + CREATINE · 900 G</span></div>
               <div className="creatine-photo-stage" ref={bottleRef}>
-                <img ref={creatinePhotoRef} className="creatine-powder-photo" src={import.meta.env.BASE_URL + "creatine-powder.webp"} alt="White creatine monohydrate powder spilling from an open black tub into a measuring scoop" fetchPriority="high" />
-                <span className="photo-caption">PURE CREATINE · FINE WHITE POWDER</span>
+                <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={import.meta.env.BASE_URL + "creatine-powder.webp"} alt="Creatine powder product visual" fetchPriority="high" />
+                <span className="photo-caption">MUSASHI RECOVER · 900 G</span>
               </div>
               <span className="scroll-cue"><ArrowDown size={14}/> SCROLL TO EXPLORE THE FORMULA</span>
             </div>
@@ -666,7 +669,7 @@ function App() {
                   {visibleProducts.slice(shelfIndex * 3, shelfIndex * 3 + 3).map((product, index) => <article className="product-card reveal" key={product.id}>
               <div className={`product-art art-${(shelfIndex * 3 + index) % 3}`}>
                 <span className="product-index">0{shelfIndex * 3 + index + 1} / FORME LABS</span>
-                {product.image_url && /^https?:\/\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className={`mini-tub tub-${(shelfIndex * 3 + index) % 4}`}><span>{(product.brand || "FORME").toUpperCase()}</span><strong>{product.name.toUpperCase()}</strong><small>{(product.size_label || product.category || "SPORTS NUTRITION").toUpperCase()}</small></div>}
+                {product.image_url && /^https?:\/\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className="product-image-pending"><span>{(product.brand || "FORME").toUpperCase()}</span><strong>OFFICIAL<br/>PRODUCT PHOTO</strong><small>AWAITING VERIFIED IMAGE</small></div>}
                 <button className="quick-add" aria-label={!product.is_active ? `View ${product.name}` : `Add ${product.name} to bag`} onClick={() => product.is_active ? addToCart(product.id) : setSelectedProduct(product)}><Plus size={18}/></button>
                 <span className="stock-note">{!product.is_active ? "COMING SOON" : product.stock > 0 ? `${product.stock} UNITS AVAILABLE` : "SOLD OUT"}</span>
               </div>
