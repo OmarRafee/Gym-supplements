@@ -196,7 +196,7 @@ function App() {
         });
         story.to(".hero-copy", { yPercent: -10, opacity: 0.24, duration: 0.3 }, 0)
           .to(bottleRef.current, { rotate: -7, x: -18, y: 18, scale: 1.08, duration: 0.62, ease: "power2.inOut" }, 0.12)
-          .to(creatinePhotoRef.current, { y: -34, scale: 1.12, duration: 0.62, ease: "power2.inOut" }, 0.12)
+          .to(creatinePhotoRef.current, { y: -46, x: 10, rotate: -2.5, scale: 1.15, duration: 0.62, ease: "power2.inOut" }, 0.12)
           .to(".hero-product-label", { y: -18, opacity: 0.55, duration: 0.45 }, 0.25);
       }
 
