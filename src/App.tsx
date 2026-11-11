@@ -27,6 +27,7 @@ type Product = {
   stock: number;
   image_url: string | null;
   is_active?: boolean;
+  is_showcase?: boolean;
 };
 
 type Coupon = { id:string; code:string; description:string|null; discount_type:"percentage"|"fixed"; discount_value:number; minimum_order:number; maximum_discount:number|null; usage_limit:number|null; used_count:number; starts_at:string|null; ends_at:string|null; is_active:boolean };
@@ -124,7 +125,7 @@ function App() {
     client.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url,brand,size_label,servings,ingredients,directions,warnings").eq("is_active", true).order("created_at")
       .then(({ data, error }) => {
         if (!active) return;
-        if (!error) setProducts((data ?? []) as Product[]);
+        if (!error) setProducts((data?.length ? data : fallbackProducts.map(item => ({...item, price: 0, stock: 0, image_url: item.id === "creatine" ? "/Gym-supplements/musashi-creatine.webp" : null, is_showcase: true }))) as Product[]);
         else setNotice("The product catalogue could not be loaded. Please try again shortly.");
       });
     client.rpc("get_public_store_settings").then(({data}) => {
@@ -152,6 +153,7 @@ function App() {
     const ctx = gsap.context(() => {
       const intro = gsap.timeline({ defaults: { ease: "power3.out" } });
       intro.from(".nav-inner", { y: -24, opacity: 0, duration: 0.8 })
+        .from(".musashi-wrap", { y: -260, rotate: -9, opacity: 0, duration: 1.05, ease: "bounce.out" }, "-=0.25")
         .from(".hero-copy > *", { y: 28, opacity: 0, duration: 0.75, stagger: 0.1 }, "-=0.35")
         .from(".hero-visual", { scale: 0.88, opacity: 0, duration: 1.1 }, "-=0.8");
 
@@ -167,8 +169,8 @@ function App() {
           },
         });
         story.to(".hero-copy", { yPercent: -18, opacity: 0.12, duration: 0.42 }, 0)
-          .to(capRef.current, { y: -82, x: 54, rotate: 58, scale: 0.96, duration: 0.32, ease: "power2.in" }, 0.12)
-          .to(bottleRef.current, { rotate: 19, x: 24, y: 24, duration: 0.48, ease: "power2.inOut" }, 0.28)
+          .to(capRef.current, { y: -72, x: -34, rotate: -72, scale: 0.94, duration: 0.34, ease: "power2.in" }, 0.12)
+          .to(bottleRef.current, { rotate: -19, x: -22, y: 24, duration: 0.48, ease: "power2.inOut" }, 0.28)
           .to(powderRef.current, { opacity: 1, scale: 1, x: 38, y: 42, duration: 0.36, ease: "power2.out" }, 0.43)
           .to(".powder-pour", { opacity: 0.92, scaleY: 1.12, duration: 0.34, ease: "power2.out" }, 0.47)
           .to(".powder-grain", { y: 155, x: "random(-125, 125)", rotation: "random(-180, 180)", opacity: 0, stagger: 0.006, duration: 0.58, ease: "power1.in" }, 0.52)
@@ -419,6 +421,7 @@ function App() {
   useEffect(() => { setCouponDiscount(0); setCouponMessage(""); }, [cart]);
   const addToCart = (id: string) => {
     const product = products.find((item) => item.id === id);
+    if (product?.is_showcase) { setNotice("This product is being prepared. Check back soon."); return; }
     if (!product || product.stock <= 0) { setNotice("This product is currently out of stock."); return; }
     if ((cart[id] ?? 0) >= product.stock) { setNotice("You have reached the available stock for this product."); return; }
     setCart((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
@@ -523,7 +526,7 @@ function App() {
 
       <main id="top">
         <section className="hero" ref={heroRef}>
-          {adminSettings.homepage?.announcement && <div className="announcement-bar">{adminSettings.homepage.announcement}</div>}
+          
           <div className="hero-inner">
             <div className="hero-copy">
               <p className="eyebrow"><span className="eyebrow-line"/> PERFORMANCE, REFINED</p>
@@ -534,12 +537,9 @@ function App() {
             <div className="hero-visual">
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
               <div className="hero-product-label"><span>01 / DAILY PERFORMANCE</span><span>CREATINE · 300 G</span></div>
-              <div className="bottle-wrap" ref={bottleRef}>
-                <div className="bottle-cap" ref={capRef}><div className="cap-ridges"/></div>
-                <div className="bottle">
-                  <div className="bottle-neck"/>
-                  <div className="bottle-label"><span className="label-brand">{adminSettings.store_profile?.store_name || "FORME"}</span><span className="label-rule"/><strong>CREATINE<br/>MONOHYDRATE</strong><small>PURE POWDER · 300 G</small><span className="label-bottom">5G PER SERVING</span></div>
-                </div>
+              <div className="bottle-wrap musashi-wrap" ref={bottleRef}>
+                <img className="musashi-bottle-photo" src="/Gym-supplements/musashi-creatine.webp" alt="Musashi Fuel Creatine Monohydrate tub"/>
+                <img className="musashi-cap-photo" ref={capRef} src="/Gym-supplements/musashi-creatine.webp" alt="" aria-hidden="true"/>
               </div>
               <div className="powder-cloud" ref={powderRef}>
                 {Array.from({length: 38}, (_, i) => <i className="powder-grain" key={i} style={{ left: `${(i * 37) % 100}%`, top: `${(i * 19) % 65}%`, width: `${3 + (i % 5)}px`, height: `${3 + (i % 5)}px` }}/>)}
@@ -561,15 +561,15 @@ function App() {
         <section className="shop-section section-pad" id="shop">
           <div className="section-heading reveal"><div><p className="eyebrow">THE COLLECTION / 001—006</p><h2>Essentials for<br/><em>what’s next.</em></h2></div><p>Thoughtful formulas. Transparent ingredients.<br/>Made to earn their place in your routine.</p></div>
           <div className="filter-row reveal"><div className="filters">{categories.map((item) => <button key={item} className={category === item ? "filter active" : "filter"} onClick={() => setCategory(item)}>{item}</button>)}</div><label className="shop-search"><span>SEARCH</span><input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Find your formula…"/></label><span>{visibleProducts.length.toString().padStart(2,"0")} PRODUCTS</span></div>
-          <div className="product-grid">
+          <div className="product-grid gym-shelf-grid">
             {visibleProducts.map((product, index) => <article className="product-card reveal" key={product.id}>
               <div className={`product-art art-${index % 3}`}>
                 <span className="product-index">0{index + 1} / FORME LABS</span>
                 {product.image_url ? <img src={product.image_url} alt={product.name}/> : <div className="mini-tub"><span>FORME</span><strong>{product.name.toUpperCase()}</strong><small>{product.category?.toUpperCase()}</small></div>}
-                <button className="quick-add" aria-label={`Add ${product.name} to bag`} onClick={() => addToCart(product.id)}><Plus size={18}/></button>
-                <span className="stock-note">{product.stock > 0 ? "IN STOCK" : "SOLD OUT"}</span>
+                <button className="quick-add" aria-label={product.is_showcase ? `View ${product.name}` : `Add ${product.name} to bag`} onClick={() => product.is_showcase ? setSelectedProduct(product) : addToCart(product.id)}><Plus size={18}/></button>
+                <span className="stock-note">{product.is_showcase ? "COMING SOON" : product.stock > 0 ? "IN STOCK" : "SOLD OUT"}</span>
               </div>
-              <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{product.name}</h3></div><div className="product-pricing"><strong>{money(product.price)}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
+              <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{product.name}</h3></div><div className="product-pricing"><strong>{product.is_showcase ? "PRICE SOON" : money(product.price)}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
               <p className="product-description">{product.description}</p><button className="product-details-link" onClick={() => setSelectedProduct(product)}>Product details <ArrowUpRight size={13}/></button>
             </article>)}
           </div>
