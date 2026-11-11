@@ -465,68 +465,111 @@ function App() {
 
   async function handleCheckout(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Capture the form and all checkout values synchronously. React/browser events
+    // no longer guarantee currentTarget is available after the first await.
+    const form = new FormData(event.currentTarget);
+    const checkoutItems = cartItems.map(item => ({ ...item, quantity: Number(item.quantity) }));
+    const checkoutSubtotal = checkoutItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+    const checkoutShipping = checkoutSubtotal >= Number(shippingSettings.free_shipping_threshold ?? 1500)
+      ? 0 : Number(shippingSettings.standard_fee ?? 60);
+    const fullName = String(form.get("full_name") ?? "").trim();
+    const phone = String(form.get("phone") ?? "").trim();
+    const address = String(form.get("address") ?? "").trim();
+    const city = String(form.get("city") ?? "").trim();
+    const chosenPayment = String(form.get("payment_method") ?? "cod");
+
     if (isSubmittingOrder) return;
     if (!supabase) { setNotice("Connect Supabase to place an order."); return; }
-    if (!cartItems.length || Object.keys(cart).length !== cartItems.length) {
-      setNotice("Your cart is empty or contains products that are no longer visible. Refresh your cart before checkout.");
-      return;
+    if (!checkoutItems.length || Object.keys(cart).length !== checkoutItems.length) {
+      setNotice("Your bag contains unavailable items. Remove them and try again."); return;
     }
-    const unavailable = cartItems.find(item => !item.is_active || item.stock < item.quantity);
+    const unavailable = checkoutItems.find(item => !item.is_active || !item.is_visible || Number(item.stock) < item.quantity || item.quantity < 1);
     if (unavailable) {
-      setNotice(unavailable.stock < unavailable.quantity
-        ? unavailable.name + " no longer has enough stock. Update your cart."
+      setNotice(Number(unavailable.stock) < unavailable.quantity
+        ? unavailable.name + " no longer has enough stock. Update your bag."
         : unavailable.name + " is not currently available for purchase.");
       return;
     }
+    if (fullName.length < 2 || phone.replace(/[^0-9]/g, "").length < 7 || address.length < 5 || city.length < 2) {
+      setNotice("Please enter a valid full name, phone number, city and complete delivery address."); return;
+    }
+    if (!["cod", "instapay"].includes(chosenPayment)) {
+      setNotice("Choose a supported payment method."); return;
+    }
+
     setIsSubmittingOrder(true);
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) { setNotice("We couldn't verify your account. Please sign in again."); return; }
       if (!sessionData.session) {
         setCheckoutOpen(false); setAuthMode("login"); setAuthOpen(true);
-        setNotice("Please sign in before checkout."); return;
+        setNotice("Please sign in before checkout. Your bag has been saved."); return;
       }
-      const form = new FormData(event.currentTarget);
-      const fullName = String(form.get("full_name") ?? "").trim();
-      const phone = String(form.get("phone") ?? "").trim();
-      const address = String(form.get("address") ?? "").trim();
-      const city = String(form.get("city") ?? "").trim();
-      if (fullName.length < 2 || phone.length < 7 || address.length < 5 || city.length < 2) {
-        setNotice("Please complete your name, phone, city and delivery address."); return;
+
+      // Always validate a typed coupon at the final checkout step. The database
+      // validates it again inside place_order while locking the coupon row.
+      let finalDiscount = 0;
+      const finalCouponCode = couponCode.trim();
+      if (finalCouponCode) {
+        const { data: couponData, error: couponError } = await supabase.rpc("preview_coupon", {
+          p_code: finalCouponCode, p_subtotal: checkoutSubtotal
+        });
+        const coupon = Array.isArray(couponData) ? couponData[0] : couponData;
+        if (couponError || !coupon?.valid) {
+          setCouponDiscount(0);
+          setCouponMessage(couponError?.message || coupon?.message || "This discount code is not valid for this order.");
+          setNotice("Please correct or remove the discount code before placing your order.");
+          return;
+        }
+        finalDiscount = Number(coupon.discount_amount || 0);
+        setCouponDiscount(finalDiscount);
+        setCouponMessage(coupon.message || "Discount applied.");
       }
+
       const payload = {
-        p_items: cartItems.map(item => ({ product_id: item.id, quantity: item.quantity })),
+        p_items: checkoutItems.map(item => ({ product_id: item.id, quantity: item.quantity })),
         p_full_name: fullName,
         p_phone: phone,
         p_address: address,
         p_city: city,
-        p_payment_method: String(form.get("payment_method") ?? "cod"),
+        p_payment_method: chosenPayment,
         p_notes: String(form.get("notes") ?? "").trim(),
       };
-      const { data, error } = await supabase.rpc("place_order", { ...payload, p_coupon_code: couponDiscount > 0 ? couponCode.trim() : null });
+      const { data: orderId, error } = await supabase.rpc("place_order", {
+        ...payload, p_coupon_code: finalCouponCode || null
+      });
       if (error) { setNotice(error.message); return; }
-      if (!data) { setNotice("The order service returned no order reference. Please contact support before retrying."); return; }
+      if (!orderId) {
+        setNotice("The order service returned no order reference. Check My Account before trying again.");
+        return;
+      }
+
+      // The RPC is the source of truth for price, discount, shipping and stock.
       const { data: placedOrder, error: receiptError } = await supabase.from("orders")
         .select("order_number,total,subtotal,shipping_fee,discount_total")
-        .eq("id", data).maybeSingle();
-      if (receiptError) setNotice("Order received. The receipt details could not be refreshed, but you can find the order in My Account.");
+        .eq("id", orderId).maybeSingle();
+
       setCart({});
       setCouponCode(""); setCouponDiscount(0); setCouponMessage("");
       setCheckoutOpen(false);
+      setCartOpen(false);
       setOrderConfirmation({
-        order_number: placedOrder?.order_number ?? String(data).slice(0,8),
-        total: Number(placedOrder?.total ?? checkoutTotal),
-        subtotal: Number(placedOrder?.subtotal ?? cartTotal),
-        shipping_fee: Number(placedOrder?.shipping_fee ?? estimatedShipping),
-        discount_total: Number(placedOrder?.discount_total ?? couponDiscount),
-        payment_method: payload.p_payment_method,
-        full_name: fullName,
-        phone,
-        city,
-        address,
-        items: cartItems.map(item => ({ name:item.name, quantity:item.quantity, unit_price:Number(item.price), line_total:Number(item.price)*item.quantity }))
+        order_number: placedOrder?.order_number ?? String(orderId).slice(0, 8),
+        total: Number(placedOrder?.total ?? Math.max(0, checkoutSubtotal + checkoutShipping - finalDiscount)),
+        subtotal: Number(placedOrder?.subtotal ?? checkoutSubtotal),
+        shipping_fee: Number(placedOrder?.shipping_fee ?? checkoutShipping),
+        discount_total: Number(placedOrder?.discount_total ?? finalDiscount),
+        payment_method: chosenPayment,
+        full_name: fullName, phone, city, address,
+        items: checkoutItems.map(item => ({
+          name: item.name, quantity: item.quantity, unit_price: Number(item.price),
+          line_total: Number(item.price) * item.quantity
+        }))
       });
-      if (!receiptError) setNotice("Your order has been received. We’ll contact you to confirm delivery.");
+      setNotice(receiptError
+        ? "Your order was placed. You can find its full details in My Account."
+        : "Order placed successfully. Your order reference is ready.");
+      if (receiptError) void loadMyOrders();
     } catch (error) {
       setNotice(error instanceof Error ? "Checkout failed: " + error.message : "Checkout failed. Please try again.");
     } finally {
@@ -660,10 +703,10 @@ function App() {
 
       <footer className="footer"><a className="wordmark" href="#top">{adminSettings.store_profile?.store_name || "FORME"}<span>®</span></a><span>PERFORMANCE, REFINED.</span><a href="#help">HELP & DELIVERY</a>{adminSettings.social?.instagram_url && <a href={adminSettings.social.instagram_url} target="_blank" rel="noreferrer">INSTAGRAM ↗</a>}<span>© 2026 FORME LABS</span><a href="#top">BACK TO TOP ↑</a></footer>
 
-      {cartOpen && <div className="drawer-backdrop" onClick={() => setCartOpen(false)}><aside className="drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-head"><div><p className="eyebrow">YOUR SELECTION</p><h2>The bag <span>({cartItems.length})</span></h2></div><button className="icon-button" onClick={() => setCartOpen(false)}><X/></button></div>
+      {cartOpen && <div className="drawer-backdrop" onClick={() => setCartOpen(false)}><aside className="drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-head"><div><p className="eyebrow">YOUR BAG / REVIEW</p><h2>Your order <span>({cartItems.reduce((sum,item)=>sum+item.quantity,0)} units)</span></h2><small className="bag-subtitle">Review quantities and subtotal before secure checkout.</small></div><button className="icon-button" onClick={() => setCartOpen(false)}><X/></button></div>
         {cartItems.length === 0 ? <div className="empty-state"><ShoppingBag size={30}/><p>Your bag is waiting for something good.</p><button className="underlined-link" onClick={() => setCartOpen(false)}>Explore products <ArrowRight size={14}/></button></div> : <>
-          <div className="drawer-items">{cartItems.map((item) => <div className="drawer-item" key={item.id}><div className="drawer-thumb">F.</div><div className="drawer-item-info"><strong>{item.name}</strong><span>{money(item.price)}</span><div className="quantity-control"><button onClick={() => changeQuantity(item.id, -1)}><Minus size={13}/></button><span>{item.quantity}</span><button onClick={() => changeQuantity(item.id, 1)}><Plus size={13}/></button></div></div><strong>{money(item.price * item.quantity)}</strong></div>)}</div>
-          <div className="drawer-total"><span>SUBTOTAL</span><strong>{money(cartTotal)}</strong></div><p className="checkout-note">Shipping and payment details are confirmed at checkout.</p><button className="button button-dark full-button" onClick={async () => { setCartOpen(false); const {data} = await supabase?.auth.getSession() ?? {data:{session:null}}; if (data.session) setCheckoutOpen(true); else { setAuthMode("login"); setAuthOpen(true); setNotice("Sign in or create an account to continue. Your bag is saved."); } }}>Continue to checkout <ArrowRight size={16}/></button>
+          <div className="drawer-items">{cartItems.map((item) => <div className="drawer-item" key={item.id}><div className="drawer-thumb">{item.image_url ? <img src={item.image_url} alt="" /> : <span>F.</span>}</div><div className="drawer-item-info"><strong>{item.name}</strong><span>{money(item.price)}</span><div className="quantity-control"><button onClick={() => changeQuantity(item.id, -1)}><Minus size={13}/></button><span>{item.quantity}</span><button onClick={() => changeQuantity(item.id, 1)}><Plus size={13}/></button></div></div><strong>{money(item.price * item.quantity)}</strong></div>)}</div>
+          <div className="drawer-total"><span>SUBTOTAL</span><strong>{money(cartTotal)}</strong></div><div className="bag-cost-preview"><span>Delivery estimate</span><b>{estimatedShipping===0 ? "FREE" : money(estimatedShipping)}</b><small>{estimatedShipping===0 ? "Free delivery threshold reached" : "Final delivery fee confirmed by the store"}</small></div><p className="checkout-note">Final total is calculated securely by the database when you place your order.</p><button className="button button-dark full-button" onClick={async () => { setCartOpen(false); const {data} = await supabase?.auth.getSession() ?? {data:{session:null}}; if (data.session) setCheckoutOpen(true); else { setAuthMode("login"); setAuthOpen(true); setNotice("Sign in or create an account to continue. Your bag is saved."); } }}>Continue to checkout <ArrowRight size={16}/></button>
         </>}</aside></div>}
 
 
