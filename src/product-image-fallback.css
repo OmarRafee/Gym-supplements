@@ -1,0 +1,7 @@
+
+/* Honest product art fallback: never portray an unphotographed product as a real pack. */
+.product-image-pending{position:relative;z-index:1;width:min(78%,230px);height:210px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;border:1px dashed #555b66;background:linear-gradient(145deg,#242831,#111318);color:#fff;text-align:center;box-shadow:0 22px 32px #0009}
+.product-image-pending:before{content:"";position:absolute;inset:9px;border:1px solid #ffffff18;pointer-events:none}
+.product-image-pending>span{color:#ff6868;font:900 20px var(--font-display);letter-spacing:.1em}
+.product-image-pending>strong{font:900 25px/.9 var(--font-display);letter-spacing:.02em}
+.product-image-pending>small{font-size:7px;letter-spacing:.12em;color:#b8bdc6}
