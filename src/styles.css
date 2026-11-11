@@ -630,3 +630,24 @@ body{background:#080b0d;color:#f5f7ef}
 @media(prefers-reduced-motion:reduce){
   .hero-rotating-title{filter:none!important;transform:none!important}
 }
+
+/* Clear, trustworthy bag and order review */
+.bag-subtitle{display:block;margin-top:8px;max-width:260px;font-size:10px;line-height:1.6;color:#9ba9a6}
+.drawer-thumb{overflow:hidden;flex:0 0 62px;border:1px solid #465052;background:linear-gradient(145deg,#192326,#303b3d)}
+.drawer-thumb img{width:100%;height:100%;object-fit:contain;padding:5px}
+.drawer-thumb span{font:800 25px Manrope;color:#d6ff38}
+.drawer-item{align-items:center}
+.drawer-item-info{min-width:0}
+.drawer-item-info>strong{line-height:1.4;color:#f4f6ef}
+.drawer-item>strong{white-space:nowrap;color:#f4f6ef;font-variant-numeric:tabular-nums}
+.quantity-control{width:max-content;border:1px solid #465052;padding:6px 9px;gap:15px}
+.quantity-control button{display:grid;place-items:center;min-width:22px;min-height:22px;border-radius:4px}
+.quantity-control button:hover{background:#d6ff38;color:#101515}
+.bag-cost-preview{display:grid;grid-template-columns:1fr auto;gap:5px 12px;padding:12px 0;border-bottom:1px solid #354144}
+.bag-cost-preview span{font-size:10px;color:#a0adaa}
+.bag-cost-preview b{font-size:11px;color:#f4f6ef}
+.bag-cost-preview small{grid-column:1/-1;font-size:9px;color:#899694}
+.drawer-total strong{color:#f4f6ef;font-variant-numeric:tabular-nums}
+.drawer .checkout-note{line-height:1.6}
+.checkout-modal form input:focus,.checkout-modal form select:focus{outline:2px solid #c9f34c;outline-offset:2px}
+@media(max-width:640px){.drawer{padding:24px 20px}.drawer-item{gap:10px}.drawer-thumb{width:54px;height:62px;flex-basis:54px}}
