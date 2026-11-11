@@ -63,6 +63,10 @@ function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [motivationIndex, setMotivationIndex] = useState(0);
+  const [heroQuoteIndex, setHeroQuoteIndex] = useState(0);
+  const [username, setUsername] = useState("");
+  const [usernameEdited, setUsernameEdited] = useState(false);
+  const heroQuotes = ["BUILT FOR THE WORK.", "EARN YOUR NEXT REP.", "STRENGTH IS A STANDARD.", "SHOW UP. GET STRONGER.", "NO SHORTCUTS. JUST PROGRESS."];
   const motivationNotes = [
     { line: "Strength is earned one honest rep at a time.", tag: "DISCIPLINE" },
     { line: "Show up tired. Start small. Finish stronger.", tag: "CONSISTENCY" },
@@ -118,6 +122,21 @@ function App() {
   useEffect(() => {
     try { window.localStorage.setItem("forme-cart", JSON.stringify(cart)); } catch { /* Storage may be unavailable in private browsing. */ }
   }, [cart]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setHeroQuoteIndex(index => (index + 1) % heroQuotes.length), 2800);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    const timer = window.setInterval(() => setMotivationIndex(index => (index + 1) % motivationNotes.length), 4200);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    if (!usernameEdited) setUsername(email.includes("@") ? email.split("@")[0] : "");
+  }, [email, usernameEdited]);
+  useEffect(() => {
+    const title = document.querySelector(".hero-rotating-title");
+    if (title) gsap.fromTo(title, { y: 24, opacity: 0, filter: "blur(8px)" }, { y: 0, opacity: 1, filter: "blur(0px)", duration: .62, ease: "power3.out" });
+  }, [heroQuoteIndex]);
 
   useEffect(() => {
     if (!supabase) { setProductsLoading(false); return; }
@@ -184,6 +203,7 @@ function App() {
           .to(".powder-grain", { y: "random(90, 190)", x: "random(-95, 90)", rotation: "random(-220, 220)", opacity: 0, stagger: 0.004, duration: 0.62, ease: "power1.in" }, 0.5);
       }
 
+      gsap.utils.toArray<HTMLElement>(".strength-signs article, .motivation-note, .product-card, .trust-strip > div, .journal-card, .faq-list details").forEach((element, index) => { gsap.from(element, { y: 34, opacity: 0, scale: .985, duration: .72, delay: (index % 4) * .045, ease: "power3.out", scrollTrigger: { trigger: element, start: "top 91%", once: true } }); });
       gsap.utils.toArray<HTMLElement>(".reveal").forEach((element) => {
         gsap.from(element, {
           y: 36, opacity: 0, duration: 0.8, ease: "power3.out",
@@ -505,7 +525,7 @@ function App() {
     event.preventDefault();
     if (!supabase) { setNotice("Connect your Supabase environment variables to enable accounts."); return; }
     const result = authMode === "signup"
-      ? await supabase.auth.signUp({ email, password })
+      ? await supabase.auth.signUp({ email, password, options: { data: { full_name: username.trim() || email.split("@")[0] } } })
       : await supabase.auth.signInWithPassword({ email, password });
     if (result.error) setNotice(result.error.message);
     else {
@@ -527,7 +547,7 @@ function App() {
           </nav>
           <div className="nav-actions">
             {isAdmin && <button className="text-button admin-nav-button" onClick={() => { setAdminOpen(true); setAdminTab("overview"); void loadAdminData(); }}>ADMIN</button>}
-            <button className="text-button account-button" onClick={() => { if (userEmail) void loadMyOrders(); else { setAuthMode("login"); setAuthOpen(true); } }}>{userEmail ? "My account" : "Account"}</button>
+            <button className="text-button account-button" onClick={() => { if (userEmail) void loadMyOrders(); else { setAuthMode("login"); setAuthOpen(true); } }}>{userEmail ? "MY ACCOUNT" : "SIGN IN / JOIN"}</button>
             <button className="bag-button" aria-label="Open cart" onClick={() => setCartOpen(true)}><ShoppingBag size={17}/><span>Bag ({Object.values(cart).reduce((a,b) => a+b, 0)})</span></button>
             <button className="menu-button" aria-label="Toggle menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X/> : <Menu/>}</button>
           </div>
@@ -540,7 +560,7 @@ function App() {
           <div className="hero-inner">
             <div className="hero-copy">
               <p className="eyebrow"><span className="eyebrow-line"/> PERFORMANCE, REFINED</p>
-              <h1>{adminSettings.homepage?.hero_title || "BUILT FOR THE WORK."}</h1>
+              <h1 className="hero-rotating-title" aria-live="polite">{heroQuotes[heroQuoteIndex]}</h1>
               <p className="hero-description">{adminSettings.homepage?.hero_subtitle || "Creatine. Consistency. No shortcuts. Performance nutrition for the work you put in every day."}</p>
               <div className="hero-links"><a className="button button-light" href="#shop">Explore the collection <ArrowUpRight size={16}/></a><span>BUILT FOR THE LONG RUN</span></div>
             </div>
@@ -578,7 +598,7 @@ function App() {
                 <span className="product-index">0{index + 1} / FORME LABS</span>
                 {product.image_url && /^https?:\/\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className={`mini-tub tub-${index % 4}`}><span>{(product.brand || "FORME").toUpperCase()}</span><strong>{product.name.toUpperCase()}</strong><small>{(product.size_label || product.category || "SPORTS NUTRITION").toUpperCase()}</small></div>}
                 <button className="quick-add" aria-label={!product.is_active ? `View ${product.name}` : `Add ${product.name} to bag`} onClick={() => product.is_active ? addToCart(product.id) : setSelectedProduct(product)}><Plus size={18}/></button>
-                <span className="stock-note">{!product.is_active ? "COMING SOON" : product.stock > 0 ? "IN STOCK" : "SOLD OUT"}</span>
+                <span className="stock-note">{!product.is_active ? "COMING SOON" : product.stock > 0 ? `${product.stock} UNITS AVAILABLE` : "SOLD OUT"}</span>
               </div>
               <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{product.name}</h3></div><div className="product-pricing"><strong>{product.is_active ? money(Number(product.price)) : "AVAILABILITY SOON"}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
               <p className="product-description">{product.description}</p><button className="product-details-link" onClick={() => setSelectedProduct(product)}>Product details <ArrowUpRight size={13}/></button>
@@ -628,7 +648,7 @@ function App() {
           <form onSubmit={handleCheckout}><label>Full name<input name="full_name" required minLength={2} placeholder="Your full name"/></label><label>Phone number<input name="phone" required minLength={7} placeholder="+20"/></label><label>City<input name="city" required placeholder="Cairo"/></label><label>Delivery address<input name="address" required minLength={5} placeholder="Street, building, apartment"/></label><label>Payment method<select name="payment_method" value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)}><option value="cod">Cash on delivery</option><option value="instapay" disabled={!adminSettings.payments?.instapay_alias}>InstaPay transfer {!adminSettings.payments?.instapay_alias ? "(not configured)" : "(manual confirmation)"}</option></select></label>{paymentMethod==="instapay" && adminSettings.payments?.instapay_alias && <div className="instapay-info"><span>TRANSFER TO</span><strong>{adminSettings.payments.instapay_alias}</strong>{adminSettings.payments.account_name && <small>{adminSettings.payments.account_name}</small>}<p>{adminSettings.payments.instructions || "Transfer the exact order total and keep your transfer reference for confirmation."}</p></div>}<label>Delivery notes (optional)<input name="notes" placeholder="Anything we should know?"/></label><button className="button button-dark full-button" type="submit">Place order <ArrowRight size={16}/></button></form></section></div>}
 
       {orderConfirmation && <div className="modal-backdrop"><section className="auth-modal order-success-modal"><div className="success-mark no-print"><Check size={28}/></div><p className="eyebrow">FORME / ORDER RECEIPT</p><h2 className="no-print">Your order is received.</h2><p className="auth-sub no-print">Your order has been saved. Our team will contact you to confirm delivery details.</p><div className="receipt-header"><strong>{adminSettings.legal?.legal_name || adminSettings.store_profile?.store_name || "FORME"}</strong><span>{adminSettings.legal?.business_address || "Seller address to be completed in store settings"}</span><span>CR: {adminSettings.legal?.commercial_register || "Add commercial registration"}</span><span>Tax: {adminSettings.legal?.tax_number || "Add tax registration"}</span><span>{adminSettings.store_profile?.support_email || ""} {adminSettings.store_profile?.support_phone || ""}</span></div><div className="order-reference"><span>ORDER / INVOICE REFERENCE</span><strong>{orderConfirmation.order_number || "Received"}</strong><small>{new Date().toLocaleString()}</small></div><div className="receipt-customer"><strong>Customer</strong><span>{orderConfirmation.full_name}</span><span>{orderConfirmation.phone}</span><span>{orderConfirmation.address}, {orderConfirmation.city}</span></div><div className="receipt-lines">{orderConfirmation.items.map((item,i)=><div key={i}><span>{item.name} × {item.quantity}</span><b>{money(item.line_total)}</b></div>)}</div><div className="receipt-totals"><span>Subtotal <b>{money(orderConfirmation.subtotal)}</b></span><span>Delivery <b>{orderConfirmation.shipping_fee===0?"FREE":money(orderConfirmation.shipping_fee)}</b></span>{orderConfirmation.discount_total>0&&<span>Discount <b>−{money(orderConfirmation.discount_total)}</b></span>}<strong>Total due <b>{money(orderConfirmation.total)}</b></strong><small>Payment: {orderConfirmation.payment_method.toUpperCase()} · Estimated delivery: {adminSettings.shipping?.estimated_delivery || "To be confirmed"}</small></div><p className="receipt-policy">{adminSettings.legal?.return_policy || "Please contact the store for return and exchange terms. Complete this policy in Store Settings before launch."}</p><div className="receipt-actions no-print"><button className="button button-dark" onClick={()=>window.print()}>Print receipt</button><button className="button button-light" onClick={() => setOrderConfirmation(null)}>Continue shopping <ArrowRight size={16}/></button></div></section></div>}
-      {authOpen && <div className="modal-backdrop" onClick={() => setAuthOpen(false)}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setAuthOpen(false)}><X/></button><p className="eyebrow">WELCOME TO FORME</p><h2>{authMode === "login" ? "Good to see you." : "Start your standard."}</h2><p className="auth-sub">Your account keeps your orders and details in one place.</p><form onSubmit={handleAuth}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com"/></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={authMode === "signup" ? 8 : 6} required placeholder={authMode === "signup" ? "At least 8 characters" : "Your password"}/></label><button className="button button-dark full-button" type="submit">{authMode === "login" ? "Sign in" : "Create account"} <ArrowRight size={16}/></button></form>{authMode === "login" && <button className="switch-auth" onClick={() => void sendPasswordReset()}>Forgot password? Send me a reset link</button>}<button className="switch-auth" onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}>{authMode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}</button></section></div>}
+      {authOpen && <div className="modal-backdrop" onClick={() => setAuthOpen(false)}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setAuthOpen(false)}><X/></button><p className="eyebrow">WELCOME TO FORME</p><h2>{authMode === "login" ? "Good to see you." : "Start your standard."}</h2><p className="auth-sub">Your account keeps your orders and details in one place.</p><form onSubmit={handleAuth}>{authMode === "signup" && <label>Your name / username<input type="text" value={username} onChange={event => { setUsername(event.target.value); setUsernameEdited(true); }} minLength={2} maxLength={60} required placeholder="Name shown on your account"/></label>}<label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com"/></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={authMode === "signup" ? 8 : 6} required placeholder={authMode === "signup" ? "At least 8 characters" : "Your password"}/></label><button className="button button-dark full-button" type="submit">{authMode === "login" ? "Sign in" : "Create account"} <ArrowRight size={16}/></button></form>{authMode === "login" && <button className="switch-auth" onClick={() => void sendPasswordReset()}>Forgot password? Send me a reset link</button>}<button className="switch-auth" onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}>{authMode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}</button></section></div>}
 
 
 
@@ -747,7 +767,9 @@ function App() {
               <button className="admin-primary" type="submit">Save all store settings</button>
             </form>
           </div></div>}
-          {adminTab === "inventory" && <div className="admin-content"><div className="admin-stat-grid"><article><span>TOTAL UNITS</span><strong>{adminProducts.reduce((s,p) => s + Number(p.stock || 0),0)}</strong></article><article><span>LOW STOCK ITEMS</span><strong>{adminProducts.filter(p => p.stock <= (p.reorder_level ?? 5)).length}</strong></article><article><span>RECORDED MOVEMENTS</span><strong>{adminInventory.length}</strong></article></div><div className="admin-panel"><div className="admin-panel-head"><h2>Stock movement history</h2></div>
+          {adminTab === "inventory" && <div className="admin-content"><div className="admin-stat-grid"><article><span>TOTAL UNITS</span><strong>{adminProducts.reduce((s,p) => s + Number(p.stock || 0),0)}</strong></article><article><span>LOW STOCK ITEMS</span><strong>{adminProducts.filter(p => p.stock <= (p.reorder_level ?? 5)).length}</strong></article><article><span>RECORDED MOVEMENTS</span><strong>{adminInventory.length}</strong></article></div><div className="admin-panel"><div className="admin-panel-head"><h2>Current stock levels</h2><span className="inventory-legend">LIVE DATABASE QUANTITIES</span></div>
+            <div className="inventory-level-list">{adminProducts.filter(p=>p.is_visible !== false).map(product=>{const stock=Number(product.stock||0),threshold=Number(product.reorder_level??5),percent=threshold>0?Math.min(100,stock/Math.max(threshold*3,1)*100):100;return <article className="inventory-level-row" key={product.id}><div className="inventory-product-name"><strong>{product.name}</strong><small>{product.sku || product.category}</small></div><div className="inventory-meter"><span style={{width:percent+"%"}} className={stock<=threshold?"is-low":""}/></div><strong className={stock<=threshold?"inventory-low":""}>{stock} <small>units</small></strong><span className={stock===0?"inventory-status-out":stock<=threshold?"inventory-status-low":"inventory-status-ok"}>{stock===0?"OUT OF STOCK":stock<=threshold?"LOW STOCK":"IN STOCK"}</span></article>})}</div>
+            <div className="admin-panel-head inventory-history-heading"><h2>Stock movement history</h2></div>
             {adminInventory.map(move => <div className="admin-row" key={move.id}><div><strong>{move.products?.name || "Product"}</strong><small>{move.reason || move.movement_type} · {new Date(move.created_at).toLocaleString()}</small></div><span>{move.movement_type}</span><b className={move.quantity_change < 0 ? "admin-negative" : "admin-positive"}>{move.quantity_change > 0 ? "+" : ""}{move.quantity_change}</b><small>{move.stock_before} → {move.stock_after}</small></div>)}
             {!adminInventory.length && <p className="admin-empty">Inventory changes will be recorded here automatically.</p>}
           </div></div>}
