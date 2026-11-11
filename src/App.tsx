@@ -81,6 +81,7 @@ function App() {
   });
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -464,39 +465,73 @@ function App() {
 
   async function handleCheckout(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmittingOrder) return;
     if (!supabase) { setNotice("Connect Supabase to place an order."); return; }
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session) { setCheckoutOpen(false); setAuthMode("login"); setAuthOpen(true); setNotice("Please sign in before checkout."); return; }
-    const form = new FormData(event.currentTarget);
-    const payload = {
-      p_items: cartItems.map((item) => ({ product_id: item.id, quantity: item.quantity })),
-      p_full_name: String(form.get("full_name") ?? ""),
-      p_phone: String(form.get("phone") ?? ""),
-      p_address: String(form.get("address") ?? ""),
-      p_city: String(form.get("city") ?? ""),
-      p_payment_method: String(form.get("payment_method") ?? "cod"),
-      p_notes: String(form.get("notes") ?? ""),
-    };
-    const { data, error } = await supabase.rpc("place_order", { ...payload, p_coupon_code: couponDiscount > 0 ? couponCode.trim() : null });
-    if (error) { setNotice(error.message); return; }
-    const { data: placedOrder } = await supabase.from("orders").select("order_number,total,subtotal,shipping_fee,discount_total").eq("id", data).maybeSingle();
-    setCart({});
-    setCouponCode(""); setCouponDiscount(0); setCouponMessage("");
-    setCheckoutOpen(false);
-    setOrderConfirmation({
-      order_number: placedOrder?.order_number ?? String(data).slice(0,8),
-      total: Number(placedOrder?.total ?? checkoutTotal),
-      subtotal: Number(placedOrder?.subtotal ?? cartTotal),
-      shipping_fee: Number(placedOrder?.shipping_fee ?? estimatedShipping),
-      discount_total: Number(placedOrder?.discount_total ?? couponDiscount),
-      payment_method: String(form.get("payment_method") ?? "cod"),
-      full_name: String(form.get("full_name") ?? ""),
-      phone: String(form.get("phone") ?? ""),
-      city: String(form.get("city") ?? ""),
-      address: String(form.get("address") ?? ""),
-      items: cartItems.map(item=>({name:item.name,quantity:item.quantity,unit_price:Number(item.price),line_total:Number(item.price)*item.quantity}))
-    });
-    setNotice("Your order has been received. We’ll contact you to confirm delivery.");
+    if (!cartItems.length || Object.keys(cart).length !== cartItems.length) {
+      setNotice("Your cart is empty or contains products that are no longer visible. Refresh your cart before checkout.");
+      return;
+    }
+    const unavailable = cartItems.find(item => !item.is_active || item.stock < item.quantity);
+    if (unavailable) {
+      setNotice(unavailable.stock < unavailable.quantity
+        ? unavailable.name + " no longer has enough stock. Update your cart."
+        : unavailable.name + " is not currently available for purchase.");
+      return;
+    }
+    setIsSubmittingOrder(true);
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) { setNotice("We couldn't verify your account. Please sign in again."); return; }
+      if (!sessionData.session) {
+        setCheckoutOpen(false); setAuthMode("login"); setAuthOpen(true);
+        setNotice("Please sign in before checkout."); return;
+      }
+      const form = new FormData(event.currentTarget);
+      const fullName = String(form.get("full_name") ?? "").trim();
+      const phone = String(form.get("phone") ?? "").trim();
+      const address = String(form.get("address") ?? "").trim();
+      const city = String(form.get("city") ?? "").trim();
+      if (fullName.length < 2 || phone.length < 7 || address.length < 5 || city.length < 2) {
+        setNotice("Please complete your name, phone, city and delivery address."); return;
+      }
+      const payload = {
+        p_items: cartItems.map(item => ({ product_id: item.id, quantity: item.quantity })),
+        p_full_name: fullName,
+        p_phone: phone,
+        p_address: address,
+        p_city: city,
+        p_payment_method: String(form.get("payment_method") ?? "cod"),
+        p_notes: String(form.get("notes") ?? "").trim(),
+      };
+      const { data, error } = await supabase.rpc("place_order", { ...payload, p_coupon_code: couponDiscount > 0 ? couponCode.trim() : null });
+      if (error) { setNotice(error.message); return; }
+      if (!data) { setNotice("The order service returned no order reference. Please contact support before retrying."); return; }
+      const { data: placedOrder, error: receiptError } = await supabase.from("orders")
+        .select("order_number,total,subtotal,shipping_fee,discount_total")
+        .eq("id", data).maybeSingle();
+      if (receiptError) setNotice("Order received. The receipt details could not be refreshed, but you can find the order in My Account.");
+      setCart({});
+      setCouponCode(""); setCouponDiscount(0); setCouponMessage("");
+      setCheckoutOpen(false);
+      setOrderConfirmation({
+        order_number: placedOrder?.order_number ?? String(data).slice(0,8),
+        total: Number(placedOrder?.total ?? checkoutTotal),
+        subtotal: Number(placedOrder?.subtotal ?? cartTotal),
+        shipping_fee: Number(placedOrder?.shipping_fee ?? estimatedShipping),
+        discount_total: Number(placedOrder?.discount_total ?? couponDiscount),
+        payment_method: payload.p_payment_method,
+        full_name: fullName,
+        phone,
+        city,
+        address,
+        items: cartItems.map(item => ({ name:item.name, quantity:item.quantity, unit_price:Number(item.price), line_total:Number(item.price)*item.quantity }))
+      });
+      if (!receiptError) setNotice("Your order has been received. We’ll contact you to confirm delivery.");
+    } catch (error) {
+      setNotice(error instanceof Error ? "Checkout failed: " + error.message : "Checkout failed. Please try again.");
+    } finally {
+      setIsSubmittingOrder(false);
+    }
   }
 
   async function sendPasswordReset() {
@@ -637,7 +672,7 @@ function App() {
       {checkoutOpen && <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}><section className="auth-modal checkout-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setCheckoutOpen(false)}><X/></button><p className="eyebrow">SECURE CHECKOUT</p><h2>Almost yours.</h2><p className="auth-sub">Delivery details · Your order is confirmed after you submit this form.</p>
           <div className="coupon-entry"><div><label htmlFor="checkout-coupon">Discount code</label><div className="coupon-entry-row"><input id="checkout-coupon" value={couponCode} onChange={e => {setCouponCode(e.target.value.toUpperCase());setCouponDiscount(0);setCouponMessage("");}} placeholder="Enter your code"/><button type="button" onClick={() => void previewCoupon()}>Apply</button></div></div>{couponMessage && <small className={couponDiscount > 0 ? "coupon-success" : "coupon-error"}>{couponMessage}</small>}</div>
           <div className="checkout-summary"><span>Subtotal <b>{money(cartTotal)}</b></span><span>Delivery <b>{estimatedShipping===0 ? "FREE" : money(estimatedShipping)}</b></span>{couponDiscount>0 && <span>Discount <b>−{money(couponDiscount)}</b></span>}<strong>Total <b>{money(checkoutTotal)}</b></strong></div>
-          <form onSubmit={handleCheckout}><label>Full name<input name="full_name" required minLength={2} placeholder="Your full name"/></label><label>Phone number<input name="phone" required minLength={7} placeholder="+20"/></label><label>City<input name="city" required placeholder="Cairo"/></label><label>Delivery address<input name="address" required minLength={5} placeholder="Street, building, apartment"/></label><label>Payment method<select name="payment_method" value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)}><option value="cod">Cash on delivery</option><option value="instapay" disabled={!adminSettings.payments?.instapay_alias}>InstaPay transfer {!adminSettings.payments?.instapay_alias ? "(not configured)" : "(manual confirmation)"}</option></select></label>{paymentMethod==="instapay" && adminSettings.payments?.instapay_alias && <div className="instapay-info"><span>TRANSFER TO</span><strong>{adminSettings.payments.instapay_alias}</strong>{adminSettings.payments.account_name && <small>{adminSettings.payments.account_name}</small>}<p>{adminSettings.payments.instructions || "Transfer the exact order total and keep your transfer reference for confirmation."}</p></div>}<label>Delivery notes (optional)<input name="notes" placeholder="Anything we should know?"/></label><button className="button button-dark full-button" type="submit">Place order <ArrowRight size={16}/></button></form></section></div>}
+          <form onSubmit={handleCheckout}><label>Full name<input name="full_name" required minLength={2} placeholder="Your full name"/></label><label>Phone number<input name="phone" required minLength={7} placeholder="+20"/></label><label>City<input name="city" required placeholder="Cairo"/></label><label>Delivery address<input name="address" required minLength={5} placeholder="Street, building, apartment"/></label><label>Payment method<select name="payment_method" value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)}><option value="cod">Cash on delivery</option><option value="instapay" disabled={!adminSettings.payments?.instapay_alias}>InstaPay transfer {!adminSettings.payments?.instapay_alias ? "(not configured)" : "(manual confirmation)"}</option></select></label>{paymentMethod==="instapay" && adminSettings.payments?.instapay_alias && <div className="instapay-info"><span>TRANSFER TO</span><strong>{adminSettings.payments.instapay_alias}</strong>{adminSettings.payments.account_name && <small>{adminSettings.payments.account_name}</small>}<p>{adminSettings.payments.instructions || "Transfer the exact order total and keep your transfer reference for confirmation."}</p></div>}<label>Delivery notes (optional)<input name="notes" placeholder="Anything we should know?"/></label><button className="button button-dark full-button" type="submit" disabled={isSubmittingOrder || cartItems.length === 0}>{isSubmittingOrder ? "Submitting order…" : "Place order"} <ArrowRight size={16}/></button></form></section></div>}
 
       {orderConfirmation && <div className="modal-backdrop"><section className="auth-modal order-success-modal"><div className="success-mark no-print"><Check size={28}/></div><p className="eyebrow">FORME / ORDER RECEIPT</p><h2 className="no-print">Your order is received.</h2><p className="auth-sub no-print">Your order has been saved. Our team will contact you to confirm delivery details.</p><div className="receipt-header"><strong>{adminSettings.legal?.legal_name || adminSettings.store_profile?.store_name || "FORME"}</strong><span>{adminSettings.legal?.business_address || "Seller address to be completed in store settings"}</span><span>CR: {adminSettings.legal?.commercial_register || "Add commercial registration"}</span><span>Tax: {adminSettings.legal?.tax_number || "Add tax registration"}</span><span>{adminSettings.store_profile?.support_email || ""} {adminSettings.store_profile?.support_phone || ""}</span></div><div className="order-reference"><span>ORDER / INVOICE REFERENCE</span><strong>{orderConfirmation.order_number || "Received"}</strong><small>{new Date().toLocaleString()}</small></div><div className="receipt-customer"><strong>Customer</strong><span>{orderConfirmation.full_name}</span><span>{orderConfirmation.phone}</span><span>{orderConfirmation.address}, {orderConfirmation.city}</span></div><div className="receipt-lines">{orderConfirmation.items.map((item,i)=><div key={i}><span>{item.name} × {item.quantity}</span><b>{money(item.line_total)}</b></div>)}</div><div className="receipt-totals"><span>Subtotal <b>{money(orderConfirmation.subtotal)}</b></span><span>Delivery <b>{orderConfirmation.shipping_fee===0?"FREE":money(orderConfirmation.shipping_fee)}</b></span>{orderConfirmation.discount_total>0&&<span>Discount <b>−{money(orderConfirmation.discount_total)}</b></span>}<strong>Total due <b>{money(orderConfirmation.total)}</b></strong><small>Payment: {orderConfirmation.payment_method.toUpperCase()} · Estimated delivery: {adminSettings.shipping?.estimated_delivery || "To be confirmed"}</small></div><p className="receipt-policy">{adminSettings.legal?.return_policy || "Please contact the store for return and exchange terms. Complete this policy in Store Settings before launch."}</p><div className="receipt-actions no-print"><button className="button button-dark" onClick={()=>window.print()}>Print receipt</button><button className="button button-light" onClick={() => setOrderConfirmation(null)}>Continue shopping <ArrowRight size={16}/></button></div></section></div>}
       {authOpen && <div className="modal-backdrop" onClick={() => setAuthOpen(false)}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setAuthOpen(false)}><X/></button><p className="eyebrow">WELCOME TO FORME</p><h2>{authMode === "login" ? "Good to see you." : "Start your standard."}</h2><p className="auth-sub">Your account keeps your orders and details in one place.</p><form onSubmit={handleAuth}>{authMode === "signup" && <label>Your name / username<input type="text" value={username} onChange={event => { setUsername(event.target.value); setUsernameEdited(true); }} minLength={2} maxLength={60} required placeholder="Name shown on your account"/></label>}<label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com"/></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={authMode === "signup" ? 8 : 6} required placeholder={authMode === "signup" ? "At least 8 characters" : "Your password"}/></label><button className="button button-dark full-button" type="submit">{authMode === "login" ? "Sign in" : "Create account"} <ArrowRight size={16}/></button></form>{authMode === "login" && <button className="switch-auth" onClick={() => void sendPasswordReset()}>Forgot password? Send me a reset link</button>}<button className="switch-auth" onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}>{authMode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}</button></section></div>}
