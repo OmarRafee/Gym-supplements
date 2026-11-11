@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, Menu, Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Check, Dumbbell, Flame, Menu, Minus, Plus, ShoppingBag, Target, X, Zap } from "lucide-react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
@@ -550,14 +550,9 @@ function App() {
                 <div className="bottle-cap musashi-cap" ref={capRef}><div className="cap-ridges"/></div>
                 <div className="bottle musashi-bottle"><div className="bottle-neck"/><div className="bottle-mouth"/><div className="bottle-label musashi-label"><span className="label-brand">MUSASHI</span><small className="musashi-fuel">FUEL</small><strong>CREATINE</strong><small>MONOHYDRATE 1G/G</small><div className="musashi-facts"><b>5G<small>PER SERVE</small></b><b>70<small>SERVES</small></b></div><span className="label-bottom">UNFLAVOURED · 350G ORAL POWDER</span></div></div>
               </div>
-              <div className="powder-cloud" ref={powderRef}>
-                {Array.from({length: 38}, (_, i) => <i className="powder-grain" key={i} style={{ left: `${(i * 37) % 100}%`, top: `${(i * 19) % 65}%`, width: `${3 + (i % 5)}px`, height: `${3 + (i % 5)}px` }}/>)}
-                <div className="powder-pour"/>
-              </div>
-              <div className="stage-products" ref={productStageRef}>
-                <div className="stage-product stage-one"><span>FORME / 02</span><strong>WHEY<br/>PROTEIN</strong><small>DAILY FUEL</small></div>
-                <div className="stage-product stage-two"><span>FORME / 03</span><strong>ELECTRO-<br/>LYTES</strong><small>HYDRATION</small></div>
-                <div className="stage-product stage-three"><span>FORME / 04</span><strong>PRE<br/>WORKOUT</strong><small>FOCUS + ENERGY</small></div>
+              <div className="powder-cloud" ref={powderRef} aria-hidden="true">
+                {Array.from({length: 72}, (_, i) => <i className="powder-grain" key={i} style={{ left: `${(i * 29) % 100}%`, top: `${(i * 17) % 70}%`, width: `${2 + (i % 4)}px`, height: `${2 + (i % 4)}px`, opacity: .35 + (i % 6) * .1 }}/>)}
+                <div className="powder-pour"/><div className="powder-dust"/>
               </div>
               <span className="scroll-cue"><ArrowDown size={14}/> SCROLL TO OPEN THE SEAL</span>
             </div>
@@ -566,6 +561,11 @@ function App() {
         </section>
 
         <div className="ticker"><div className="ticker-track">{Array.from({length: 8}, (_, i) => <span key={i}>DISCIPLINE IS A DAILY PRACTICE <b>✳</b> PERFORMANCE, WITHOUT COMPROMISE <b>✳</b></span>)}</div></div>
+        <section className="strength-code section-pad" aria-label="Training mindset">
+          <div className="strength-heading"><p className="eyebrow">THE STRENGTH CODE</p><h2>Train with <em>intent.</em></h2><p>Simple principles. Stronger habits. Better sessions.</p></div>
+          <div className="strength-signs"><article><Dumbbell/><span>01 / STRENGTH</span><strong>Earn every rep.</strong></article><article><Flame/><span>02 / DRIVE</span><strong>Bring the effort.</strong></article><article><Target/><span>03 / FOCUS</span><strong>Keep your aim clear.</strong></article><article><Zap/><span>04 / RECOVERY</span><strong>Come back ready.</strong></article></div>
+          <div className="motivation-note"><span>DAILY TRAINING NOTE / {motivationNotes[motivationIndex].tag}</span><strong>“{motivationNotes[motivationIndex].line}”</strong><button onClick={() => setMotivationIndex((current) => (current + 1) % motivationNotes.length)}>NEXT NOTE <ArrowRight size={15}/></button></div>
+        </section>
 
         <section className="shop-section section-pad" id="shop">
           <div className="section-heading reveal"><div><p className="eyebrow">THE STOCKROOM / LIVE DATABASE</p><h2>Gear up.<br/><em>Get stronger.</em></h2></div><p>Real catalogue records, clear availability and product details.<br/>Only verified stock can be added to your bag.</p></div>
@@ -576,7 +576,7 @@ function App() {
               <div className={`product-art art-${index % 3}`}>
                 <span className="product-index">0{index + 1} / FORME LABS</span>
                 {product.image_url && /^https?:\/\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className={`mini-tub tub-${index % 4}`}><span>{(product.brand || "FORME").toUpperCase()}</span><strong>{product.name.toUpperCase()}</strong><small>{(product.size_label || product.category || "SPORTS NUTRITION").toUpperCase()}</small></div>}
-                <button className="quick-add" aria-label={product.is_showcase ? `View ${product.name}` : `Add ${product.name} to bag`} onClick={() => product.is_showcase ? setSelectedProduct(product) : addToCart(product.id)}><Plus size={18}/></button>
+                <button className="quick-add" aria-label={!product.is_active ? `View ${product.name}` : `Add ${product.name} to bag`} onClick={() => product.is_active ? addToCart(product.id) : setSelectedProduct(product)}><Plus size={18}/></button>
                 <span className="stock-note">{!product.is_active ? "COMING SOON" : product.stock > 0 ? "IN STOCK" : "SOLD OUT"}</span>
               </div>
               <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{product.name}</h3></div><div className="product-pricing"><strong>{product.is_active ? money(Number(product.price)) : "AVAILABILITY SOON"}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
@@ -685,7 +685,7 @@ function App() {
               </form>
             </div>
             <div className="admin-panel"><div className="admin-panel-head"><h2>Catalogue ({adminProducts.length})</h2></div>
-              {adminProducts.map(product => <div className="admin-row admin-product-row" key={product.id}><div><strong>{product.name}</strong><small>{product.sku || "No SKU"} · {product.category} · {product.is_visible ? "Visible" : "Hidden"} · {product.is_active ? "For sale" : "Display only"}</small></div><b>{money(Number(product.price))}</b><button onClick={() => { setEditingProduct(product); window.scrollTo({top:0,behavior:"smooth"}); }}>Edit</button><button className="admin-danger" onClick={() => void setAdminProductActive(product.id, product.is_active !== false)}>{product.is_active === false ? "Restore" : "Hide"}</button></div>)}
+              {adminProducts.map(product => <div className="admin-row admin-product-row" key={product.id}><div><strong>{product.name}</strong><small>{product.sku || "No SKU"} · {product.category} · {product.is_visible ? "Visible" : "Hidden"} · {product.is_active ? "For sale" : "Display only"}</small></div><b>{product.is_active ? money(Number(product.price)) : "Not for sale"}</b><button onClick={() => { setEditingProduct(product); window.scrollTo({top:0,behavior:"smooth"}); }}>Edit</button><button className="admin-danger" onClick={() => void setAdminProductVisibility(product.id, product.is_visible !== false)}>{product.is_visible === false ? "Show" : "Hide"}</button></div>)}
             </div>
           </div>}
           {adminTab === "orders" && <div className="admin-content"><div className="admin-panel"><div className="admin-panel-head"><h2>Orders ({adminOrders.length})</h2></div>
