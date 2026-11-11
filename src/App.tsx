@@ -58,8 +58,7 @@ const toLocalDateTime = (value?: string | null) => { if (!value) return ""; cons
 function App() {
   const heroRef = useRef<HTMLElement>(null);
   const bottleRef = useRef<HTMLDivElement>(null);
-  const capRef = useRef<HTMLDivElement>(null);
-  const powderRef = useRef<HTMLDivElement>(null);
+  const creatinePhotoRef = useRef<HTMLImageElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [motivationIndex, setMotivationIndex] = useState(0);
@@ -183,7 +182,7 @@ function App() {
         .from(".hero-copy > *", { y: 24, opacity: 0, duration: 0.65, stagger: 0.09 }, "-=0.25")
         .from(bottleRef.current, { y: -150, rotate: -5, opacity: 0, duration: 1.15, ease: "bounce.out" }, "-=0.35");
 
-      if (bottleRef.current && capRef.current && powderRef.current) {
+      if (bottleRef.current && creatinePhotoRef.current) {
         const story = gsap.timeline({
           scrollTrigger: {
             trigger: heroRef.current,
@@ -194,13 +193,10 @@ function App() {
             anticipatePin: 1,
           },
         });
-        story.to(".hero-copy", { yPercent: -10, opacity: 0.28, duration: 0.3 }, 0)
-          .to(capRef.current, { y: -58, x: -66, rotate: -78, duration: 0.3, ease: "power2.inOut" }, 0.16)
-          .to(".bottle-mouth", { opacity: 1, duration: 0.12 }, 0.34)
-          .to(bottleRef.current, { rotate: -23, x: -14, y: 20, duration: 0.5, ease: "power2.inOut" }, 0.3)
-          .to(powderRef.current, { opacity: 1, scale: 1, duration: 0.28, ease: "power2.out" }, 0.43)
-          .to(".powder-pour", { opacity: 1, scaleY: 1, duration: 0.32, ease: "power2.out" }, 0.46)
-          .to(".powder-grain", { y: "random(90, 190)", x: "random(-95, 90)", rotation: "random(-220, 220)", opacity: 0, stagger: 0.004, duration: 0.62, ease: "power1.in" }, 0.5);
+        story.to(".hero-copy", { yPercent: -10, opacity: 0.24, duration: 0.3 }, 0)
+          .to(bottleRef.current, { rotate: -7, x: -18, y: 18, scale: 1.08, duration: 0.62, ease: "power2.inOut" }, 0.12)
+          .to(creatinePhotoRef.current, { y: -34, scale: 1.12, duration: 0.62, ease: "power2.inOut" }, 0.12)
+          .to(".hero-product-label", { y: -18, opacity: 0.55, duration: 0.45 }, 0.25);
       }
 
       gsap.utils.toArray<HTMLElement>(".strength-signs article, .motivation-note, .product-card, .trust-strip > div, .journal-card, .faq-list details").forEach((element, index) => { gsap.from(element, { y: 34, opacity: 0, scale: .985, duration: .72, delay: (index % 4) * .045, ease: "power3.out", scrollTrigger: { trigger: element, start: "top 91%", once: true } }); });
@@ -567,15 +563,11 @@ function App() {
             <div className="hero-visual">
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
               <div className="hero-product-label"><span>01 / DAILY PERFORMANCE</span><span>CREATINE MONOHYDRATE · 350 G</span></div>
-              <div className="bottle-wrap musashi-wrap" ref={bottleRef} aria-label="Musashi creatine monohydrate tub">
-                <div className="bottle-cap musashi-cap" ref={capRef}><div className="cap-ridges"/></div>
-                <div className="bottle musashi-bottle"><div className="bottle-neck"/><div className="bottle-mouth"/><div className="bottle-label musashi-label"><span className="label-brand">MUSASHI</span><small className="musashi-fuel">FUEL</small><strong>CREATINE</strong><small>MONOHYDRATE 1G/G</small><div className="musashi-facts"><b>5G<small>PER SERVE</small></b><b>70<small>SERVES</small></b></div><span className="label-bottom">UNFLAVOURED · 350G ORAL POWDER</span></div></div>
+              <div className="creatine-photo-stage" ref={bottleRef}>
+                <img ref={creatinePhotoRef} className="creatine-powder-photo" src={import.meta.env.BASE_URL + "creatine-powder.webp"} alt="White creatine monohydrate powder spilling from an open black tub into a measuring scoop" fetchPriority="high" />
+                <span className="photo-caption">PURE CREATINE · FINE WHITE POWDER</span>
               </div>
-              <div className="powder-cloud" ref={powderRef} aria-hidden="true">
-                {Array.from({length: 72}, (_, i) => <i className="powder-grain" key={i} style={{ left: `${(i * 29) % 100}%`, top: `${(i * 17) % 70}%`, width: `${2 + (i % 4)}px`, height: `${2 + (i % 4)}px`, opacity: .35 + (i % 6) * .1 }}/>)}
-                <div className="powder-pour"/><div className="powder-dust"/>
-              </div>
-              <span className="scroll-cue"><ArrowDown size={14}/> SCROLL TO OPEN THE SEAL</span>
+              <span className="scroll-cue"><ArrowDown size={14}/> SCROLL TO EXPLORE THE FORMULA</span>
             </div>
           </div>
           <div className="hero-foot"><span>FORMULATED WITH INTENTION</span><span>CAIRO · EGYPT</span><span>01 — 04</span></div>
