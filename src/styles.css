@@ -608,3 +608,25 @@ body{background:#080b0d;color:#f5f7ef}
 @media(max-width:900px){.creatine-photo-stage{width:100%;height:52vh;min-height:350px}.hero-rotating-title{font-size:clamp(54px,7.6vw,82px)}}
 @media(max-width:640px){.creatine-photo-stage{width:100%;height:390px;min-height:340px;margin-top:0}.creatine-powder-photo{width:110%;max-width:none}.photo-caption{bottom:0;font-size:7px;letter-spacing:1.2px}.hero-rotating-title{height:2.1em;min-height:2.1em;max-width:11ch;font-size:clamp(52px,12vw,74px)}}
 @media(prefers-reduced-motion:reduce){.creatine-photo-stage,.creatine-powder-photo{will-change:auto}}
+
+/* Keep rotating hero messages on one stable two-line stage. */
+.hero-rotating-title{
+  width:100%;
+  max-width:10.5ch;
+  height:2.05em;
+  min-height:2.05em;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  text-align:left;
+  line-height:.96;
+  overflow:visible;
+  text-wrap:balance;
+}
+.hero-copy{min-width:0}
+@media(max-width:640px){
+  .hero-rotating-title{height:2.1em;min-height:2.1em;max-width:11ch}
+}
+@media(prefers-reduced-motion:reduce){
+  .hero-rotating-title{filter:none!important;transform:none!important}
+}
