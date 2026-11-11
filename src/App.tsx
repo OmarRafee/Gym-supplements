@@ -124,10 +124,12 @@ function App() {
     try { window.localStorage.setItem("forme-cart", JSON.stringify(cart)); } catch { /* Storage may be unavailable in private browsing. */ }
   }, [cart]);
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setInterval(() => setHeroQuoteIndex(index => (index + 1) % heroQuotes.length), 2800);
     return () => window.clearInterval(timer);
   }, []);
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setInterval(() => setMotivationIndex(index => (index + 1) % motivationNotes.length), 4200);
     return () => window.clearInterval(timer);
   }, []);
@@ -135,6 +137,7 @@ function App() {
     if (!usernameEdited) setUsername(email.includes("@") ? email.split("@")[0] : "");
   }, [email, usernameEdited]);
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const title = document.querySelector(".hero-rotating-title");
     if (title) gsap.fromTo(title, { y: 24, opacity: 0, filter: "blur(8px)" }, { y: 0, opacity: 1, filter: "blur(0px)", duration: .62, ease: "power3.out" });
   }, [heroQuoteIndex]);
