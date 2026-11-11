@@ -492,7 +492,7 @@ function App() {
     if (fullName.length < 2 || phone.replace(/[^0-9]/g, "").length < 7 || address.length < 5 || city.length < 2) {
       setNotice("Please enter a valid full name, phone number, city and complete delivery address."); return;
     }
-    if (!["cod", "instapay"].includes(chosenPayment)) {
+    if (chosenPayment !== "cod") {
       setNotice("Choose a supported payment method."); return;
     }
 
