@@ -644,7 +644,8 @@ function App() {
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
               <div className="hero-product-label"><span>01 / MUSASHI RECOVER</span><span>HIGH PROTEIN + CREATINE · 900 G</span></div>
               <div className="creatine-photo-stage" ref={bottleRef}>
-                <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={import.meta.env.BASE_URL + "musashi-product.webp"} alt="Musashi Recover high protein and creatine 900 gram tub" fetchPriority="high" />
+                <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={import.meta.env.BASE_URL + "musashi-product.webp"} alt="Musashi Recover high protein and creatine 900 gram tub" fetchPriority="high" onError={(event) => { event.currentTarget.style.display = "none"; event.currentTarget.parentElement?.classList.add("hero-image-fallback"); }} />
+                <div className="hero-fallback-tub" aria-hidden="true"><span className="fallback-cap"/><span className="fallback-label"><b>MUSASHI</b><strong>RECOVER<br/>HIGH PROTEIN<br/>+ CREATINE</strong><small>30G PROTEIN&nbsp;&nbsp; | &nbsp;&nbsp;19 SERVES</small></span></div>
                 <span className="photo-caption">MUSASHI RECOVER · 900 G</span>
               </div>
               <span className="scroll-cue"><ArrowDown size={14}/> SCROLL TO EXPLORE THE FORMULA</span>
