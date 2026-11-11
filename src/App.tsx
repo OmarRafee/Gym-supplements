@@ -3,6 +3,7 @@ import { ArrowDown, ArrowRight, ArrowUpRight, Check, Dumbbell, Flame, Menu, Minu
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
+import { calculateCartSummary, normalizeCouponPreview } from "./lib/store-math.mjs";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -178,40 +179,31 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const ctx = gsap.context(() => {
-      const intro = gsap.timeline({ defaults: { ease: "power3.out" } });
-      intro.from(".nav-inner", { y: -18, opacity: 0, duration: 0.65 })
-        .from(".hero-copy > *", { y: 24, opacity: 0, duration: 0.65, stagger: 0.09 }, "-=0.25")
-        .from(bottleRef.current, { y: -150, rotate: -5, opacity: 0, duration: 1.15, ease: "bounce.out" }, "-=0.35");
-
-      if (bottleRef.current && creatinePhotoRef.current) {
-        const story = gsap.timeline({
-          scrollTrigger: {
-            trigger: heroRef.current,
-            start: "top top",
-            end: "+=100%",
-            scrub: 0.65,
-            pin: true,
-            anticipatePin: 1,
-          },
+      if (!reducedMotion) {
+        const intro = gsap.timeline({ defaults: { ease: "power3.out" } });
+        intro.from(".nav-inner", { y: -18, opacity: 0, duration: 0.65 })
+          .from(".hero-copy > *", { y: 24, opacity: 0, duration: 0.65, stagger: 0.09 }, "-=0.25")
+          .from(bottleRef.current, { y: -80, rotate: -3, opacity: 0, duration: 0.9, ease: "power2.out" }, "-=0.35");
+        if (bottleRef.current && creatinePhotoRef.current) {
+          const story = gsap.timeline({ scrollTrigger: { trigger: heroRef.current, start: "top top", end: "+=85%", scrub: 0.55, pin: true, anticipatePin: 1 } });
+          story.to(".hero-copy", { yPercent: -8, opacity: 0.28, duration: 0.3 }, 0)
+            .to(bottleRef.current, { rotate: -6, x: -14, y: 14, scale: 1.045, duration: 0.62, ease: "power2.inOut" }, 0.12)
+            .to(creatinePhotoRef.current, { y: -34, x: 8, rotate: -1.5, scale: 1.08, duration: 0.62, ease: "power2.inOut" }, 0.12)
+            .to(".hero-product-label", { y: -14, opacity: 0.55, duration: 0.45 }, 0.25);
+        }
+        gsap.utils.toArray<HTMLElement>(".shelf-tier-track").forEach(track => {
+          gsap.fromTo(track, { x: 18 }, { x: -18, ease: "none", scrollTrigger: { trigger: track, start: "top 88%", end: "bottom 18%", scrub: 0.35 } });
         });
-        story.to(".hero-copy", { yPercent: -10, opacity: 0.24, duration: 0.3 }, 0)
-          .to(bottleRef.current, { rotate: -7, x: -18, y: 18, scale: 1.08, duration: 0.62, ease: "power2.inOut" }, 0.12)
-          .to(creatinePhotoRef.current, { y: -46, x: 10, rotate: -2.5, scale: 1.15, duration: 0.62, ease: "power2.inOut" }, 0.12)
-          .to(".hero-product-label", { y: -18, opacity: 0.55, duration: 0.45 }, 0.25);
+        gsap.to(".ticker-track", { xPercent: -25, duration: 24, repeat: -1, ease: "none" });
+        gsap.utils.toArray<HTMLElement>(".strength-signs article, .motivation-note, .product-card, .trust-strip > div, .journal-card, .faq-list details, .reveal").forEach((element,index) => {
+          gsap.from(element, { y: 30, opacity: 0, duration: 0.7, delay: (index % 4) * 0.035, ease: "power3.out", scrollTrigger: { trigger: element, start: "top 91%", once: true } });
+        });
       }
-
-      gsap.utils.toArray<HTMLElement>(".strength-signs article, .motivation-note, .product-card, .trust-strip > div, .journal-card, .faq-list details").forEach((element, index) => { gsap.from(element, { y: 34, opacity: 0, scale: .985, duration: .72, delay: (index % 4) * .045, ease: "power3.out", scrollTrigger: { trigger: element, start: "top 91%", once: true } }); });
-      gsap.utils.toArray<HTMLElement>(".reveal").forEach((element) => {
-        gsap.from(element, {
-          y: 36, opacity: 0, duration: 0.8, ease: "power3.out",
-          scrollTrigger: { trigger: element, start: "top 88%", once: true },
-        });
-      });
-      gsap.to(".ticker-track", { xPercent: -25, duration: 24, repeat: -1, ease: "none" });
     });
     return () => ctx.revert();
-  }, []);
+  }, []);;
 
   async function loadAdminData() {
     if (!supabase || !isAdmin) return;
@@ -267,9 +259,10 @@ function App() {
     const { data, error } = await supabase.rpc("preview_coupon", { p_code: couponCode.trim(), p_subtotal: cartTotal });
     if (error) { setCouponDiscount(0); setCouponMessage(error.message); return; }
     const result = Array.isArray(data) ? data[0] : data;
-    if (!result?.valid) { setCouponDiscount(0); setCouponMessage(result?.message || "This code is not available."); return; }
-    setCouponDiscount(Number(result.discount_amount || 0));
-    setCouponMessage(result.message || "Discount applied.");
+    const normalized = normalizeCouponPreview(result, cartTotal);
+    if (!normalized.valid) { setCouponDiscount(0); setCouponMessage(normalized.message); return; }
+    setCouponDiscount(normalized.discount);
+    setCouponMessage(normalized.message);
   }
 
   async function saveAdminCoupon(event: React.FormEvent<HTMLFormElement>) {
@@ -442,10 +435,12 @@ function App() {
   const categories = ["ALL", ...Array.from(new Set(products.map((product) => product.category?.toUpperCase() ?? "OTHER")))];
   const visibleProducts = products.filter((product) => (category === "ALL" || product.category?.toUpperCase() === category) && (!searchQuery.trim() || (product.name+" "+(product.description ?? "")+" "+(product.category ?? "")+" "+(product.brand ?? "")).toLowerCase().includes(searchQuery.trim().toLowerCase())));
   const cartItems = products.filter((product) => cart[product.id]).map((product) => ({ ...product, quantity: cart[product.id] }));
-  const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shippingSettings = adminSettings.shipping ?? { standard_fee: 60, free_shipping_threshold: 1500, estimated_delivery: "2–5 business days" };
-  const estimatedShipping = cartTotal >= Number(shippingSettings.free_shipping_threshold ?? 1500) ? 0 : Number(shippingSettings.standard_fee ?? 60);
-  const checkoutTotal = Math.max(0, cartTotal - couponDiscount + estimatedShipping);
+  const cartSummary = calculateCartSummary(cartItems, shippingSettings, couponDiscount);
+  const cartTotal = cartSummary.subtotal;
+  const estimatedShipping = cartSummary.shipping;
+  const checkoutTotal = cartSummary.total;
+  const hasUnavailableCartItems = Object.keys(cart).length !== cartItems.length;
   useEffect(() => { setCouponDiscount(0); setCouponMessage(""); }, [cart]);
   const addToCart = (id: string) => {
     const product = products.find((item) => item.id === id);
@@ -471,8 +466,7 @@ function App() {
     const form = new FormData(event.currentTarget);
     const checkoutItems = cartItems.map(item => ({ ...item, quantity: Number(item.quantity) }));
     const checkoutSubtotal = checkoutItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
-    const checkoutShipping = checkoutSubtotal >= Number(shippingSettings.free_shipping_threshold ?? 1500)
-      ? 0 : Number(shippingSettings.standard_fee ?? 60);
+    const checkoutShipping = calculateCartSummary(checkoutItems, shippingSettings).shipping;
     const fullName = String(form.get("full_name") ?? "").trim();
     const phone = String(form.get("phone") ?? "").trim();
     const address = String(form.get("address") ?? "").trim();
@@ -523,9 +517,10 @@ function App() {
           setNotice("Please correct or remove the discount code before placing your order.");
           return;
         }
-        finalDiscount = Number(coupon.discount_amount || 0);
+        const normalizedCoupon = normalizeCouponPreview(coupon, checkoutSubtotal);
+        finalDiscount = normalizedCoupon.discount;
         setCouponDiscount(finalDiscount);
-        setCouponMessage(coupon.message || "Discount applied.");
+        setCouponMessage(normalizedCoupon.message);
       }
 
       const payload = {
@@ -557,7 +552,7 @@ function App() {
       setCartOpen(false);
       setOrderConfirmation({
         order_number: placedOrder?.order_number ?? String(orderId).slice(0, 8),
-        total: Number(placedOrder?.total ?? Math.max(0, checkoutSubtotal + checkoutShipping - finalDiscount)),
+        total: Number(placedOrder?.total ?? calculateCartSummary(checkoutItems, shippingSettings, finalDiscount).total),
         subtotal: Number(placedOrder?.subtotal ?? checkoutSubtotal),
         shipping_fee: Number(placedOrder?.shipping_fee ?? checkoutShipping),
         discount_total: Number(placedOrder?.discount_total ?? finalDiscount),
@@ -662,19 +657,26 @@ function App() {
           <div className="section-heading reveal"><div><p className="eyebrow">THE STOCKROOM / LIVE DATABASE</p><h2>Gear up.<br/><em>Get stronger.</em></h2></div><p>Real catalogue records, clear availability and product details.<br/>Only verified stock can be added to your bag.</p></div>
           <div className="filter-row reveal"><div className="filters">{categories.map((item) => <button key={item} className={category === item ? "filter active" : "filter"} onClick={() => setCategory(item)}>{item}</button>)}</div><label className="shop-search"><span>SEARCH</span><input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Find your formula…"/></label><span>{visibleProducts.length.toString().padStart(2,"0")} PRODUCTS</span></div>
           <div className="catalog-status"><span className="live-dot"/> LIVE CATALOGUE <b>{products.length} DATABASE ITEMS</b><span>{productsLoading ? "SYNCING…" : "UPDATED LIVE"}</span></div>
-          <div className="product-grid gym-shelf-grid">
-            {visibleProducts.map((product, index) => <article className="product-card reveal" key={product.id}>
-              <div className={`product-art art-${index % 3}`}>
-                <span className="product-index">0{index + 1} / FORME LABS</span>
-                {product.image_url && /^https?:\/\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className={`mini-tub tub-${index % 4}`}><span>{(product.brand || "FORME").toUpperCase()}</span><strong>{product.name.toUpperCase()}</strong><small>{(product.size_label || product.category || "SPORTS NUTRITION").toUpperCase()}</small></div>}
+          <div className="gym-shelf-rows">
+            {Array.from({ length: Math.ceil(visibleProducts.length / 3) }, (_, shelfIndex) => (
+              <div className="gym-shelf-tier" key={`shelf-${shelfIndex}`}>
+                <div className="shelf-tier-track">
+                  {visibleProducts.slice(shelfIndex * 3, shelfIndex * 3 + 3).map((product, index) => <article className="product-card reveal" key={product.id}>
+              <div className={`product-art art-${(shelfIndex * 3 + index) % 3}`}>
+                <span className="product-index">0{shelfIndex * 3 + index + 1} / FORME LABS</span>
+                {product.image_url && /^https?:\/\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className={`mini-tub tub-${(shelfIndex * 3 + index) % 4}`}><span>{(product.brand || "FORME").toUpperCase()}</span><strong>{product.name.toUpperCase()}</strong><small>{(product.size_label || product.category || "SPORTS NUTRITION").toUpperCase()}</small></div>}
                 <button className="quick-add" aria-label={!product.is_active ? `View ${product.name}` : `Add ${product.name} to bag`} onClick={() => product.is_active ? addToCart(product.id) : setSelectedProduct(product)}><Plus size={18}/></button>
                 <span className="stock-note">{!product.is_active ? "COMING SOON" : product.stock > 0 ? `${product.stock} UNITS AVAILABLE` : "SOLD OUT"}</span>
               </div>
               <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{product.name}</h3></div><div className="product-pricing"><strong>{product.is_active ? money(Number(product.price)) : "AVAILABILITY SOON"}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
               <p className="product-description">{product.description}</p><button className="product-details-link" onClick={() => setSelectedProduct(product)}>Product details <ArrowUpRight size={13}/></button>
             </article>)}
+                </div>
+                <div className="shelf-front-rail"><span>STOCKROOM / TIER {String(shelfIndex + 1).padStart(2,"0")}</span><i/></div>
+              </div>
+            ))}
           </div>
-          {productsLoading && <div className="catalog-empty"><span>SYNCING STOCKROOM</span><h3>Loading the live catalogue.</h3><p>Pulling product details directly from the store database.</p></div>}
+          {productsLoading && <div className="catalog-skeletons" aria-label="Loading products">{Array.from({length:3},(_,i)=><div className="catalog-skeleton" key={i}><div/><span/><b/></div>)}</div>}
           {!productsLoading && visibleProducts.length === 0 && <div className="catalog-empty"><span>LIVE STOCKROOM</span><h3>{searchQuery ? "No matching products." : "No products are published yet."}</h3><p>{searchQuery ? "Try another name, brand or category." : "Add or publish products from the admin dashboard. The storefront reads directly from Supabase."}</p>{searchQuery && <button onClick={()=>setSearchQuery("")}>Clear search</button>}</div>}
           <div className="catalog-footnote">Prices and purchase availability are shown only after the store verifies the listing.</div>
         </section>
@@ -704,9 +706,9 @@ function App() {
       <footer className="footer"><a className="wordmark" href="#top">{adminSettings.store_profile?.store_name || "FORME"}<span>®</span></a><span>PERFORMANCE, REFINED.</span><a href="#help">HELP & DELIVERY</a>{adminSettings.social?.instagram_url && <a href={adminSettings.social.instagram_url} target="_blank" rel="noreferrer">INSTAGRAM ↗</a>}<span>© 2026 FORME LABS</span><a href="#top">BACK TO TOP ↑</a></footer>
 
       {cartOpen && <div className="drawer-backdrop" onClick={() => setCartOpen(false)}><aside className="drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-head"><div><p className="eyebrow">YOUR BAG / REVIEW</p><h2>Your order <span>({cartItems.reduce((sum,item)=>sum+item.quantity,0)} units)</span></h2><small className="bag-subtitle">Review quantities and subtotal before secure checkout.</small></div><button className="icon-button" onClick={() => setCartOpen(false)}><X/></button></div>
-        {cartItems.length === 0 ? <div className="empty-state"><ShoppingBag size={30}/><p>Your bag is waiting for something good.</p><button className="underlined-link" onClick={() => setCartOpen(false)}>Explore products <ArrowRight size={14}/></button></div> : <>
+        {hasUnavailableCartItems && <div className="bag-unavailable-warning"><strong>Some saved items are no longer in the live catalogue.</strong><span>Remove unavailable items before checkout.</span><button onClick={() => setCart(Object.fromEntries(cartItems.map(item=>[item.id,item.quantity])))}>Remove unavailable items</button></div>}{cartItems.length === 0 ? <div className="empty-state"><ShoppingBag size={30}/><p>Your bag is waiting for something good.</p><button className="underlined-link" onClick={() => setCartOpen(false)}>Explore products <ArrowRight size={14}/></button></div> : <>
           <div className="drawer-items">{cartItems.map((item) => <div className="drawer-item" key={item.id}><div className="drawer-thumb">{item.image_url ? <img src={item.image_url} alt="" /> : <span>F.</span>}</div><div className="drawer-item-info"><strong>{item.name}</strong><span>{money(item.price)}</span><div className="quantity-control"><button onClick={() => changeQuantity(item.id, -1)}><Minus size={13}/></button><span>{item.quantity}</span><button onClick={() => changeQuantity(item.id, 1)}><Plus size={13}/></button></div></div><strong>{money(item.price * item.quantity)}</strong></div>)}</div>
-          <div className="drawer-total"><span>SUBTOTAL</span><strong>{money(cartTotal)}</strong></div><div className="bag-cost-preview"><span>Delivery estimate</span><b>{estimatedShipping===0 ? "FREE" : money(estimatedShipping)}</b><small>{estimatedShipping===0 ? "Free delivery threshold reached" : "Final delivery fee confirmed by the store"}</small></div><p className="checkout-note">Final total is calculated securely by the database when you place your order.</p><button className="button button-dark full-button" onClick={async () => { setCartOpen(false); const {data} = await supabase?.auth.getSession() ?? {data:{session:null}}; if (data.session) setCheckoutOpen(true); else { setAuthMode("login"); setAuthOpen(true); setNotice("Sign in or create an account to continue. Your bag is saved."); } }}>Continue to checkout <ArrowRight size={16}/></button>
+          <div className="drawer-total"><span>SUBTOTAL</span><strong>{money(cartTotal)}</strong></div><div className="bag-cost-preview"><span>Delivery estimate</span><b>{estimatedShipping===0 ? "FREE" : money(estimatedShipping)}</b><small>{estimatedShipping===0 ? "Free delivery threshold reached" : "Final delivery fee confirmed by the store"}</small></div><p className="checkout-note">Final total is calculated securely by the database when you place your order.</p><button className="button button-dark full-button" onClick={async () => { if (hasUnavailableCartItems) { setNotice("Remove unavailable products from your bag before checkout."); return; } setCartOpen(false); const {data} = await supabase?.auth.getSession() ?? {data:{session:null}}; if (data.session) setCheckoutOpen(true); else { setAuthMode("login"); setAuthOpen(true); setNotice("Sign in or create an account to continue. Your bag is saved."); } }}>Continue to checkout <ArrowRight size={16}/></button>
         </>}</aside></div>}
 
 
@@ -715,7 +717,7 @@ function App() {
       {checkoutOpen && <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}><section className="auth-modal checkout-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setCheckoutOpen(false)}><X/></button><p className="eyebrow">SECURE CHECKOUT</p><h2>Almost yours.</h2><p className="auth-sub">Delivery details · Your order is confirmed after you submit this form.</p>
           <div className="coupon-entry"><div><label htmlFor="checkout-coupon">Discount code</label><div className="coupon-entry-row"><input id="checkout-coupon" value={couponCode} onChange={e => {setCouponCode(e.target.value.toUpperCase());setCouponDiscount(0);setCouponMessage("");}} placeholder="Enter your code"/><button type="button" onClick={() => void previewCoupon()}>Apply</button></div></div>{couponMessage && <small className={couponDiscount > 0 ? "coupon-success" : "coupon-error"}>{couponMessage}</small>}</div>
           <div className="checkout-summary"><span>Subtotal <b>{money(cartTotal)}</b></span><span>Delivery <b>{estimatedShipping===0 ? "FREE" : money(estimatedShipping)}</b></span>{couponDiscount>0 && <span>Discount <b>−{money(couponDiscount)}</b></span>}<strong>Total <b>{money(checkoutTotal)}</b></strong></div>
-          <form onSubmit={handleCheckout}><label>Full name<input name="full_name" required minLength={2} placeholder="Your full name"/></label><label>Phone number<input name="phone" required minLength={7} placeholder="+20"/></label><label>City<input name="city" required placeholder="Cairo"/></label><label>Delivery address<input name="address" required minLength={5} placeholder="Street, building, apartment"/></label><label>Payment method<select name="payment_method" value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)}><option value="cod">Cash on delivery</option><option value="instapay" disabled={!adminSettings.payments?.instapay_alias}>InstaPay transfer {!adminSettings.payments?.instapay_alias ? "(not configured)" : "(manual confirmation)"}</option></select></label>{paymentMethod==="instapay" && adminSettings.payments?.instapay_alias && <div className="instapay-info"><span>TRANSFER TO</span><strong>{adminSettings.payments.instapay_alias}</strong>{adminSettings.payments.account_name && <small>{adminSettings.payments.account_name}</small>}<p>{adminSettings.payments.instructions || "Transfer the exact order total and keep your transfer reference for confirmation."}</p></div>}<label>Delivery notes (optional)<input name="notes" placeholder="Anything we should know?"/></label><button className="button button-dark full-button" type="submit" disabled={isSubmittingOrder || cartItems.length === 0}>{isSubmittingOrder ? "Submitting order…" : "Place order"} <ArrowRight size={16}/></button></form></section></div>}
+          <form onSubmit={handleCheckout}><label>Full name<input name="full_name" required minLength={2} placeholder="Your full name"/></label><label>Phone number<input name="phone" required minLength={7} placeholder="+20"/></label><label>City<input name="city" required placeholder="Cairo"/></label><label>Delivery address<input name="address" required minLength={5} placeholder="Street, building, apartment"/></label><label>Payment method<select name="payment_method" value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)}><option value="cod">Cash on delivery</option><option value="instapay" disabled={!adminSettings.payments?.instapay_alias}>InstaPay transfer {!adminSettings.payments?.instapay_alias ? "(not configured)" : "(manual confirmation)"}</option></select></label>{paymentMethod==="instapay" && adminSettings.payments?.instapay_alias && <div className="instapay-info"><span>TRANSFER TO</span><strong>{adminSettings.payments.instapay_alias}</strong>{adminSettings.payments.account_name && <small>{adminSettings.payments.account_name}</small>}<p>{adminSettings.payments.instructions || "Transfer the exact order total and keep your transfer reference for confirmation."}</p></div>}<label>Delivery notes (optional)<input name="notes" placeholder="Anything we should know?"/></label><button className="button button-dark full-button" type="submit" disabled={isSubmittingOrder || cartItems.length === 0 || hasUnavailableCartItems}>{isSubmittingOrder ? "Submitting order…" : "Place order"} <ArrowRight size={16}/></button></form></section></div>}
 
       {orderConfirmation && <div className="modal-backdrop"><section className="auth-modal order-success-modal"><div className="success-mark no-print"><Check size={28}/></div><p className="eyebrow">FORME / ORDER RECEIPT</p><h2 className="no-print">Your order is received.</h2><p className="auth-sub no-print">Your order has been saved. Our team will contact you to confirm delivery details.</p><div className="receipt-header"><strong>{adminSettings.legal?.legal_name || adminSettings.store_profile?.store_name || "FORME"}</strong><span>{adminSettings.legal?.business_address || "Seller address to be completed in store settings"}</span><span>CR: {adminSettings.legal?.commercial_register || "Add commercial registration"}</span><span>Tax: {adminSettings.legal?.tax_number || "Add tax registration"}</span><span>{adminSettings.store_profile?.support_email || ""} {adminSettings.store_profile?.support_phone || ""}</span></div><div className="order-reference"><span>ORDER / INVOICE REFERENCE</span><strong>{orderConfirmation.order_number || "Received"}</strong><small>{new Date().toLocaleString()}</small></div><div className="receipt-customer"><strong>Customer</strong><span>{orderConfirmation.full_name}</span><span>{orderConfirmation.phone}</span><span>{orderConfirmation.address}, {orderConfirmation.city}</span></div><div className="receipt-lines">{orderConfirmation.items.map((item,i)=><div key={i}><span>{item.name} × {item.quantity}</span><b>{money(item.line_total)}</b></div>)}</div><div className="receipt-totals"><span>Subtotal <b>{money(orderConfirmation.subtotal)}</b></span><span>Delivery <b>{orderConfirmation.shipping_fee===0?"FREE":money(orderConfirmation.shipping_fee)}</b></span>{orderConfirmation.discount_total>0&&<span>Discount <b>−{money(orderConfirmation.discount_total)}</b></span>}<strong>Total due <b>{money(orderConfirmation.total)}</b></strong><small>Payment: {orderConfirmation.payment_method.toUpperCase()} · Estimated delivery: {adminSettings.shipping?.estimated_delivery || "To be confirmed"}</small></div><p className="receipt-policy">{adminSettings.legal?.return_policy || "Please contact the store for return and exchange terms. Complete this policy in Store Settings before launch."}</p><div className="receipt-actions no-print"><button className="button button-dark" onClick={()=>window.print()}>Print receipt</button><button className="button button-light" onClick={() => setOrderConfirmation(null)}>Continue shopping <ArrowRight size={16}/></button></div></section></div>}
       {authOpen && <div className="modal-backdrop" onClick={() => setAuthOpen(false)}><section className="auth-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setAuthOpen(false)}><X/></button><p className="eyebrow">WELCOME TO FORME</p><h2>{authMode === "login" ? "Good to see you." : "Start your standard."}</h2><p className="auth-sub">Your account keeps your orders and details in one place.</p><form onSubmit={handleAuth}>{authMode === "signup" && <label>Your name / username<input type="text" value={username} onChange={event => { setUsername(event.target.value); setUsernameEdited(true); }} minLength={2} maxLength={60} required placeholder="Name shown on your account"/></label>}<label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com"/></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={authMode === "signup" ? 8 : 6} required placeholder={authMode === "signup" ? "At least 8 characters" : "Your password"}/></label><button className="button button-dark full-button" type="submit">{authMode === "login" ? "Sign in" : "Create account"} <ArrowRight size={16}/></button></form>{authMode === "login" && <button className="switch-auth" onClick={() => void sendPasswordReset()}>Forgot password? Send me a reset link</button>}<button className="switch-auth" onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}>{authMode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}</button></section></div>}
