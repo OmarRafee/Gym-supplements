@@ -27,7 +27,7 @@ type Product = {
   stock: number;
   image_url: string | null;
   is_active?: boolean;
-  is_showcase?: boolean;
+  is_visible?: boolean;
 };
 
 type Coupon = { id:string; code:string; description:string|null; discount_type:"percentage"|"fixed"; discount_value:number; minimum_order:number; maximum_discount:number|null; usage_limit:number|null; used_count:number; starts_at:string|null; ends_at:string|null; is_active:boolean };
@@ -52,12 +52,6 @@ type AdminOrder = {
   order_items?: { product_name: string; quantity: number; line_total: number }[];
 };
 
-const fallbackProducts: Product[] = [
-  { id: "whey", name: "Gold Standard Whey", category: "PROTEIN", description: "A daily essential. Smooth texture, considered nutrition.", price: 1500, stock: 50, image_url: null },
-  { id: "creatine", name: "Musashi Fuel Creatine Monohydrate", category: "PERFORMANCE", description: "Unflavoured creatine monohydrate. Product preview only — final price and stock will be confirmed before launch.", price: 0, stock: 0, brand: "Musashi", size_label: "350 g", servings: 70, image_url: null, is_showcase: true },
-  { id: "pre", name: "Pre-Workout", category: "ENERGY", description: "A focused formula for the work ahead.", price: 750, stock: 40, image_url: null },
-];
-
 const money = (value: number) => new Intl.NumberFormat("en-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(value);
 const toLocalDateTime = (value?: string | null) => { if (!value) return ""; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString().slice(0,16); };
 
@@ -66,8 +60,15 @@ function App() {
   const bottleRef = useRef<HTMLDivElement>(null);
   const capRef = useRef<HTMLDivElement>(null);
   const powderRef = useRef<HTMLDivElement>(null);
-  const productStageRef = useRef<HTMLDivElement>(null);
-  const [products, setProducts] = useState<Product[]>(isSupabaseConfigured ? [] : fallbackProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [motivationIndex, setMotivationIndex] = useState(0);
+  const motivationNotes = [
+    { line: "Strength is earned one honest rep at a time.", tag: "DISCIPLINE" },
+    { line: "Show up tired. Start small. Finish stronger.", tag: "CONSISTENCY" },
+    { line: "Your competition is yesterday’s effort.", tag: "PROGRESS" },
+    { line: "Recovery is training. Respect the rest.", tag: "RECOVERY" },
+  ];
   const [cart, setCart] = useState<Record<string, number>>(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem("forme-cart") || "{}");
@@ -119,15 +120,22 @@ function App() {
   }, [cart]);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) { setProductsLoading(false); return; }
     const client = supabase;
     let active = true;
-    client.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url,brand,size_label,servings,ingredients,directions,warnings").eq("is_active", true).order("created_at")
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (!error) setProducts((data?.length ? data : fallbackProducts.map(item => ({...item, price: 0, stock: 0, image_url: null, is_showcase: true }))) as Product[]);
-        else setNotice("The product catalogue could not be loaded. Please try again shortly.");
-      });
+    const loadProducts = async () => {
+      const { data, error } = await client.from("products")
+        .select("id,name,slug,sku,category,description,price,compare_at_price,stock,image_url,brand,size_label,servings,ingredients,directions,warnings,is_active,is_visible,is_featured")
+        .eq("is_visible", true).order("is_featured", { ascending: false }).order("created_at", { ascending: false });
+      if (!active) return;
+      if (error) setNotice("Catalogue connection error: " + error.message);
+      else setProducts((data ?? []) as Product[]);
+      setProductsLoading(false);
+    };
+    void loadProducts();
+    const productChannel = client.channel("store-product-catalogue")
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => { void loadProducts(); })
+      .subscribe();
     client.rpc("get_public_store_settings").then(({data}) => {
       if (active && data) setAdminSettings(data as Record<string,any>);
     });
@@ -146,18 +154,17 @@ function App() {
       if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
       void syncUser(session?.user.id ?? null, session?.user.email ?? null);
     });
-    return () => { active = false; listener.subscription.unsubscribe(); };
+    return () => { active = false; listener.subscription.unsubscribe(); void client.removeChannel(productChannel); };
   }, []);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
       const intro = gsap.timeline({ defaults: { ease: "power3.out" } });
-      intro.from(".nav-inner", { y: -24, opacity: 0, duration: 0.8 })
-        .from(".musashi-wrap", { y: -260, rotate: -9, opacity: 0, duration: 1.05, ease: "bounce.out" }, "-=0.25")
-        .from(".hero-copy > *", { y: 28, opacity: 0, duration: 0.75, stagger: 0.1 }, "-=0.35")
-        .from(".hero-visual", { scale: 0.88, opacity: 0, duration: 1.1 }, "-=0.8");
+      intro.from(".nav-inner", { y: -18, opacity: 0, duration: 0.65 })
+        .from(".hero-copy > *", { y: 24, opacity: 0, duration: 0.65, stagger: 0.09 }, "-=0.25")
+        .from(bottleRef.current, { y: -150, rotate: -5, opacity: 0, duration: 1.15, ease: "bounce.out" }, "-=0.35");
 
-      if (bottleRef.current && capRef.current && powderRef.current && productStageRef.current) {
+      if (bottleRef.current && capRef.current && powderRef.current) {
         const story = gsap.timeline({
           scrollTrigger: {
             trigger: heroRef.current,
@@ -168,14 +175,12 @@ function App() {
             anticipatePin: 1,
           },
         });
-        story.to(".hero-copy", { yPercent: -18, opacity: 0.12, duration: 0.42 }, 0)
-          .to(capRef.current, { y: -72, x: -34, rotate: -72, scale: 0.94, duration: 0.34, ease: "power2.in" }, 0.12)
-          .to(bottleRef.current, { rotate: -19, x: -22, y: 24, duration: 0.48, ease: "power2.inOut" }, 0.28)
-          .to(powderRef.current, { opacity: 1, scale: 1, x: 38, y: 42, duration: 0.36, ease: "power2.out" }, 0.43)
-          .to(".powder-pour", { opacity: 0.92, scaleY: 1.12, duration: 0.34, ease: "power2.out" }, 0.47)
-          .to(".powder-grain", { y: 155, x: "random(-125, 125)", rotation: "random(-180, 180)", opacity: 0, stagger: 0.006, duration: 0.58, ease: "power1.in" }, 0.52)
-          .to(productStageRef.current, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(1.2)" }, 0.68)
-          .to(".stage-product", { y: 0, rotate: 0, opacity: 1, stagger: 0.08, duration: 0.45, ease: "back.out(1.5)" }, 0.7);
+        story.to(".hero-copy", { yPercent: -10, opacity: 0.28, duration: 0.3 }, 0)
+          .to(capRef.current, { y: -58, x: -66, rotate: -78, duration: 0.3, ease: "power2.inOut" }, 0.16)
+          .to(bottleRef.current, { rotate: -23, x: -14, y: 20, duration: 0.5, ease: "power2.inOut" }, 0.3)
+          .to(powderRef.current, { opacity: 1, scale: 1, duration: 0.28, ease: "power2.out" }, 0.43)
+          .to(".powder-pour", { opacity: 1, scaleY: 1, duration: 0.32, ease: "power2.out" }, 0.46)
+          .to(".powder-grain", { y: "random(90, 190)", x: "random(-95, 90)", rotation: "random(-220, 220)", opacity: 0, stagger: 0.004, duration: 0.62, ease: "power1.in" }, 0.5);
       }
 
       gsap.utils.toArray<HTMLElement>(".reveal").forEach((element) => {
@@ -351,6 +356,8 @@ function App() {
       category: String(form.get("category") ?? "").trim(),
       description: String(form.get("description") ?? "").trim(),
       price: Number(form.get("price")),
+      is_visible: form.get("is_visible") === "on",
+      is_active: form.get("is_active") === "on",
       cost_price: form.get("cost_price") ? Number(form.get("cost_price")) : null,
       compare_at_price: form.get("compare_at_price") ? Number(form.get("compare_at_price")) : null,
       stock: Number(form.get("stock")),
@@ -361,7 +368,6 @@ function App() {
       warnings: String(form.get("warnings") ?? "").trim() || null,
       is_featured: form.get("is_featured") === "on",
       image_url: String(form.get("image_url") ?? "").trim() || null,
-      is_active: true,
     };
     if (!name || !payload.category || !Number.isFinite(payload.price) || payload.price < 0 || !Number.isInteger(payload.stock) || payload.stock < 0) {
       setNotice("Check the product name, category, price and stock values.");
@@ -375,20 +381,23 @@ function App() {
     formElement.reset();
     setNotice(editingProduct ? "Product updated." : "Product added.");
     await loadAdminData();
-    const { data } = await supabase.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url,brand,size_label,servings,ingredients,directions,warnings").eq("is_active", true).order("created_at");
-    if (data) setProducts(data as Product[]);
+    await refreshStoreProducts();
   }
 
-  async function setAdminProductActive(id: string, currentActive: boolean) {
+  async function setAdminProductVisibility(id: string, currentVisible: boolean) {
     if (!supabase || !isAdmin) return;
-    const { error } = await supabase.from("products").update({ is_active: !currentActive }).eq("id", id);
+    const { error } = await supabase.from("products").update({ is_visible: !currentVisible }).eq("id", id);
     if (error) setNotice(error.message);
-    else {
-      setNotice(currentActive ? "Product hidden from the storefront." : "Product restored to the storefront.");
-      await loadAdminData();
-      const { data } = await supabase.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url").eq("is_active", true).order("created_at");
-      setProducts((data ?? []) as Product[]);
-    }
+    else { setNotice(currentVisible ? "Product hidden from the catalogue." : "Product restored to the catalogue."); await loadAdminData(); await refreshStoreProducts(); }
+  }
+
+  async function refreshStoreProducts() {
+    if (!supabase) return;
+    const { data, error } = await supabase.from("products")
+      .select("id,name,slug,sku,category,description,price,compare_at_price,stock,image_url,brand,size_label,servings,ingredients,directions,warnings,is_active,is_visible,is_featured")
+      .eq("is_visible", true).order("is_featured", { ascending: false }).order("created_at", { ascending: false });
+    if (error) setNotice("Catalogue refresh failed: " + error.message);
+    else setProducts((data ?? []) as Product[]);
   }
 
   async function updateAdminOrder(id: string, field: "status" | "payment_status" | "tracking_number" | "payment_reference", value: string) {
@@ -412,7 +421,7 @@ function App() {
   }
 
   const categories = ["ALL", ...Array.from(new Set(products.map((product) => product.category?.toUpperCase() ?? "OTHER")))];
-  const visibleProducts = products.filter((product) => (category === "ALL" || product.category?.toUpperCase() === category) && (!searchQuery.trim() || (product.name+" "+(product.description ?? "")+" "+(product.category ?? "")).toLowerCase().includes(searchQuery.trim().toLowerCase())));
+  const visibleProducts = products.filter((product) => (category === "ALL" || product.category?.toUpperCase() === category) && (!searchQuery.trim() || (product.name+" "+(product.description ?? "")+" "+(product.category ?? "")+" "+(product.brand ?? "")).toLowerCase().includes(searchQuery.trim().toLowerCase())));
   const cartItems = products.filter((product) => cart[product.id]).map((product) => ({ ...product, quantity: cart[product.id] }));
   const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shippingSettings = adminSettings.shipping ?? { standard_fee: 60, free_shipping_threshold: 1500, estimated_delivery: "2–5 business days" };
@@ -421,7 +430,7 @@ function App() {
   useEffect(() => { setCouponDiscount(0); setCouponMessage(""); }, [cart]);
   const addToCart = (id: string) => {
     const product = products.find((item) => item.id === id);
-    if (product?.is_showcase) { setNotice("This product is being prepared. Check back soon."); return; }
+    if (!product?.is_active) { setNotice("This product is on display. Availability will be confirmed soon."); return; }
     if (!product || product.stock <= 0) { setNotice("This product is currently out of stock."); return; }
     if ((cart[id] ?? 0) >= product.stock) { setNotice("You have reached the available stock for this product."); return; }
     setCart((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
@@ -536,10 +545,10 @@ function App() {
             </div>
             <div className="hero-visual">
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
-              <div className="hero-product-label"><span>01 / DAILY PERFORMANCE</span><span>CREATINE · 300 G</span></div>
-              <div className="bottle-wrap musashi-wrap" ref={bottleRef}>
-                <div className="bottle-cap" ref={capRef}><div className="cap-ridges"/></div>
-                <div className="bottle musashi-bottle"><div className="bottle-neck"/><div className="bottle-label musashi-label"><span className="label-brand">MUSASHI</span><small className="musashi-fuel">FUEL</small><strong>CREATINE</strong><small>MONOHYDRATE 1G/G</small><div className="musashi-facts"><b>5G<small>PER SERVE</small></b><b>70<small>SERVES</small></b></div><span className="label-bottom">UNFLAVOURED · 350G ORAL POWDER</span></div></div>
+              <div className="hero-product-label"><span>01 / DAILY PERFORMANCE</span><span>CREATINE MONOHYDRATE · 350 G</span></div>
+              <div className="bottle-wrap musashi-wrap" ref={bottleRef} aria-label="Musashi creatine monohydrate tub">
+                <div className="bottle-cap musashi-cap" ref={capRef}><div className="cap-ridges"/></div>
+                <div className="bottle musashi-bottle"><div className="bottle-neck"/><div className="bottle-mouth"/><div className="bottle-label musashi-label"><span className="label-brand">MUSASHI</span><small className="musashi-fuel">FUEL</small><strong>CREATINE</strong><small>MONOHYDRATE 1G/G</small><div className="musashi-facts"><b>5G<small>PER SERVE</small></b><b>70<small>SERVES</small></b></div><span className="label-bottom">UNFLAVOURED · 350G ORAL POWDER</span></div></div>
               </div>
               <div className="powder-cloud" ref={powderRef}>
                 {Array.from({length: 38}, (_, i) => <i className="powder-grain" key={i} style={{ left: `${(i * 37) % 100}%`, top: `${(i * 19) % 65}%`, width: `${3 + (i % 5)}px`, height: `${3 + (i % 5)}px` }}/>)}
@@ -550,7 +559,7 @@ function App() {
                 <div className="stage-product stage-two"><span>FORME / 03</span><strong>ELECTRO-<br/>LYTES</strong><small>HYDRATION</small></div>
                 <div className="stage-product stage-three"><span>FORME / 04</span><strong>PRE<br/>WORKOUT</strong><small>FOCUS + ENERGY</small></div>
               </div>
-              <span className="scroll-cue"><ArrowDown size={14}/> SCROLL TO CRACK THE SEAL</span>
+              <span className="scroll-cue"><ArrowDown size={14}/> SCROLL TO OPEN THE SEAL</span>
             </div>
           </div>
           <div className="hero-foot"><span>FORMULATED WITH INTENTION</span><span>CAIRO · EGYPT</span><span>01 — 04</span></div>
@@ -559,21 +568,24 @@ function App() {
         <div className="ticker"><div className="ticker-track">{Array.from({length: 8}, (_, i) => <span key={i}>DISCIPLINE IS A DAILY PRACTICE <b>✳</b> PERFORMANCE, WITHOUT COMPROMISE <b>✳</b></span>)}</div></div>
 
         <section className="shop-section section-pad" id="shop">
-          <div className="section-heading reveal"><div><p className="eyebrow">THE COLLECTION / 001—006</p><h2>Essentials for<br/><em>what’s next.</em></h2></div><p>Thoughtful formulas. Transparent ingredients.<br/>Made to earn their place in your routine.</p></div>
+          <div className="section-heading reveal"><div><p className="eyebrow">THE STOCKROOM / LIVE DATABASE</p><h2>Gear up.<br/><em>Get stronger.</em></h2></div><p>Real catalogue records, clear availability and product details.<br/>Only verified stock can be added to your bag.</p></div>
           <div className="filter-row reveal"><div className="filters">{categories.map((item) => <button key={item} className={category === item ? "filter active" : "filter"} onClick={() => setCategory(item)}>{item}</button>)}</div><label className="shop-search"><span>SEARCH</span><input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Find your formula…"/></label><span>{visibleProducts.length.toString().padStart(2,"0")} PRODUCTS</span></div>
+          <div className="catalog-status"><span className="live-dot"/> LIVE CATALOGUE <b>{products.length} DATABASE ITEMS</b><span>{productsLoading ? "SYNCING…" : "UPDATED LIVE"}</span></div>
           <div className="product-grid gym-shelf-grid">
             {visibleProducts.map((product, index) => <article className="product-card reveal" key={product.id}>
               <div className={`product-art art-${index % 3}`}>
                 <span className="product-index">0{index + 1} / FORME LABS</span>
-                {product.image_url ? <img src={product.image_url} alt={product.name}/> : <div className="mini-tub"><span>FORME</span><strong>{product.name.toUpperCase()}</strong><small>{product.category?.toUpperCase()}</small></div>}
+                {product.image_url && /^https?:\/\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className={`mini-tub tub-${index % 4}`}><span>{(product.brand || "FORME").toUpperCase()}</span><strong>{product.name.toUpperCase()}</strong><small>{(product.size_label || product.category || "SPORTS NUTRITION").toUpperCase()}</small></div>}
                 <button className="quick-add" aria-label={product.is_showcase ? `View ${product.name}` : `Add ${product.name} to bag`} onClick={() => product.is_showcase ? setSelectedProduct(product) : addToCart(product.id)}><Plus size={18}/></button>
-                <span className="stock-note">{product.is_showcase ? "COMING SOON" : product.stock > 0 ? "IN STOCK" : "SOLD OUT"}</span>
+                <span className="stock-note">{!product.is_active ? "COMING SOON" : product.stock > 0 ? "IN STOCK" : "SOLD OUT"}</span>
               </div>
-              <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{product.name}</h3></div><div className="product-pricing"><strong>{product.is_showcase ? "PRICE SOON" : money(product.price)}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
+              <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{product.name}</h3></div><div className="product-pricing"><strong>{product.is_active ? money(Number(product.price)) : "AVAILABILITY SOON"}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
               <p className="product-description">{product.description}</p><button className="product-details-link" onClick={() => setSelectedProduct(product)}>Product details <ArrowUpRight size={13}/></button>
             </article>)}
           </div>
-          {visibleProducts.length === 0 && <div className="catalog-empty"><span>FORME / THE COLLECTION</span><h3>{searchQuery ? "Nothing found this time." : "The first collection is being prepared."}</h3><p>{searchQuery ? "Try another product name or clear your search." : "We are preparing the product range. Check back shortly."}</p>{searchQuery && <button onClick={()=>setSearchQuery("")}>Clear search</button>}</div>}
+          {productsLoading && <div className="catalog-empty"><span>SYNCING STOCKROOM</span><h3>Loading the live catalogue.</h3><p>Pulling product details directly from the store database.</p></div>}
+          {!productsLoading && visibleProducts.length === 0 && <div className="catalog-empty"><span>LIVE STOCKROOM</span><h3>{searchQuery ? "No matching products." : "No products are published yet."}</h3><p>{searchQuery ? "Try another name, brand or category." : "Add or publish products from the admin dashboard. The storefront reads directly from Supabase."}</p>{searchQuery && <button onClick={()=>setSearchQuery("")}>Clear search</button>}</div>}
+          <div className="catalog-footnote">Prices and purchase availability are shown only after the store verifies the listing.</div>
         </section>
 
         <section className="trust-strip" aria-label="Store promises"><div><span>01</span><strong>Clear product information</strong><small>Know what you are choosing.</small></div><div><span>02</span><strong>Local delivery</strong><small>Egypt-wide delivery options.</small></div><div><span>03</span><strong>Human support</strong><small>Questions? We are here to help.</small></div><div><span>04</span><strong>Secure checkout</strong><small>Your order is recorded safely.</small></div></section>
@@ -608,7 +620,7 @@ function App() {
 
 
       {myOrdersOpen && <div className="modal-backdrop" onClick={()=>setMyOrdersOpen(false)}><section className="auth-modal my-orders-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setMyOrdersOpen(false)}><X/></button><p className="eyebrow">YOUR FORME ACCOUNT</p><h2>Your orders.</h2><p className="auth-sub">{userEmail}</p>{myOrdersLoading ? <p className="admin-loading">Loading your orders…</p> : myOrders.length ? <div className="my-orders-list">{myOrders.map(order=><article key={order.id}><div className="my-order-heading"><strong>{order.order_number || order.id.slice(0,8)}</strong><span className={"status-pill status-"+order.status}>{order.status === "pending" ? "Received" : order.status}</span></div><small>{new Date(order.created_at).toLocaleDateString()} · {order.payment_method.toUpperCase()}</small>{(order.order_items ?? []).map((item:any,i:number)=><p key={i}>{item.product_name} × {item.quantity}</p>)}<div className="my-order-foot"><b>{money(Number(order.total))}</b><span>{order.payment_status.replaceAll("_"," ")}</span></div>{order.tracking_number && <small>Tracking: {order.tracking_number}</small>}</article>)}</div> : <p className="admin-empty">You haven't placed an order yet. Your next step starts in the collection.</p>}<button className="switch-auth" onClick={async()=>{await supabase?.auth.signOut();setMyOrdersOpen(false);setNotice("You have signed out.");}}>Sign out</button></section></div>}
-      {selectedProduct && <div className="modal-backdrop" onClick={() => setSelectedProduct(null)}><section className="product-detail-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setSelectedProduct(null)}><X/></button><div className="product-detail-art">{selectedProduct.image_url ? <img src={selectedProduct.image_url} alt={selectedProduct.name}/> : <div className="mini-tub"><span>{adminSettings.store_profile?.store_name || "FORME"}</span><strong>{selectedProduct.name.toUpperCase()}</strong><small>{selectedProduct.category?.toUpperCase()}</small></div>}</div><div className="product-detail-copy"><p className="eyebrow">{selectedProduct.category?.toUpperCase()} / PRODUCT DETAILS</p><h2>{selectedProduct.name}</h2>{selectedProduct.brand && <p className="product-brand">{selectedProduct.brand}</p>}<p>{selectedProduct.description}</p><strong className="product-detail-price">{selectedProduct.is_showcase ? "PRICE TO BE CONFIRMED" : money(selectedProduct.price)}</strong>{selectedProduct.size_label && <div className="product-detail-fact"><span>SIZE</span><b>{selectedProduct.size_label}</b></div>}{selectedProduct.servings && <div className="product-detail-fact"><span>SERVINGS</span><b>{selectedProduct.servings}</b></div>}{selectedProduct.ingredients && <div className="product-detail-section"><strong>Ingredients</strong><p>{selectedProduct.ingredients}</p></div>}{selectedProduct.directions && <div className="product-detail-section"><strong>How to use</strong><p>{selectedProduct.directions}</p></div>}{selectedProduct.warnings && <div className="product-detail-section"><strong>Important information</strong><p>{selectedProduct.warnings}</p></div>}<button className="button button-dark full-button" disabled={selectedProduct.stock<=0} onClick={()=>{addToCart(selectedProduct.id);setSelectedProduct(null);}}>{selectedProduct.is_showcase ? "Coming soon" : "Add to bag"} <ArrowRight size={16}/></button></div></section></div>}
+      {selectedProduct && <div className="modal-backdrop" onClick={() => setSelectedProduct(null)}><section className="product-detail-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setSelectedProduct(null)}><X/></button><div className="product-detail-art">{selectedProduct.image_url ? <img src={selectedProduct.image_url} alt={selectedProduct.name}/> : <div className="mini-tub"><span>{adminSettings.store_profile?.store_name || "FORME"}</span><strong>{selectedProduct.name.toUpperCase()}</strong><small>{selectedProduct.category?.toUpperCase()}</small></div>}</div><div className="product-detail-copy"><p className="eyebrow">{selectedProduct.category?.toUpperCase()} / PRODUCT DETAILS</p><h2>{selectedProduct.name}</h2>{selectedProduct.brand && <p className="product-brand">{selectedProduct.brand}</p>}<p>{selectedProduct.description}</p><strong className="product-detail-price">{selectedProduct.is_active ? money(Number(selectedProduct.price)) : "AVAILABILITY TO BE CONFIRMED"}</strong>{selectedProduct.size_label && <div className="product-detail-fact"><span>SIZE</span><b>{selectedProduct.size_label}</b></div>}{selectedProduct.servings && <div className="product-detail-fact"><span>SERVINGS</span><b>{selectedProduct.servings}</b></div>}{selectedProduct.ingredients && <div className="product-detail-section"><strong>Ingredients</strong><p>{selectedProduct.ingredients}</p></div>}{selectedProduct.directions && <div className="product-detail-section"><strong>How to use</strong><p>{selectedProduct.directions}</p></div>}{selectedProduct.warnings && <div className="product-detail-section"><strong>Important information</strong><p>{selectedProduct.warnings}</p></div>}<button className="button button-dark full-button" disabled={!selectedProduct.is_active || selectedProduct.stock<=0} onClick={()=>{addToCart(selectedProduct.id);setSelectedProduct(null);}}>{!selectedProduct.is_active ? "Coming soon" : selectedProduct.stock<=0 ? "Out of stock" : "Add to bag"} <ArrowRight size={16}/></button></div></section></div>}
       {checkoutOpen && <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}><section className="auth-modal checkout-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setCheckoutOpen(false)}><X/></button><p className="eyebrow">SECURE CHECKOUT</p><h2>Almost yours.</h2><p className="auth-sub">Delivery details · Your order is confirmed after you submit this form.</p>
           <div className="coupon-entry"><div><label htmlFor="checkout-coupon">Discount code</label><div className="coupon-entry-row"><input id="checkout-coupon" value={couponCode} onChange={e => {setCouponCode(e.target.value.toUpperCase());setCouponDiscount(0);setCouponMessage("");}} placeholder="Enter your code"/><button type="button" onClick={() => void previewCoupon()}>Apply</button></div></div>{couponMessage && <small className={couponDiscount > 0 ? "coupon-success" : "coupon-error"}>{couponMessage}</small>}</div>
           <div className="checkout-summary"><span>Subtotal <b>{money(cartTotal)}</b></span><span>Delivery <b>{estimatedShipping===0 ? "FREE" : money(estimatedShipping)}</b></span>{couponDiscount>0 && <span>Discount <b>−{money(couponDiscount)}</b></span>}<strong>Total <b>{money(checkoutTotal)}</b></strong></div>
@@ -661,7 +673,9 @@ function App() {
                 <div className="admin-form-grid"><label>Stock<input name="stock" type="number" min="0" step="1" required defaultValue={editingProduct?.stock ?? 0}/></label><label>Reorder at<input name="reorder_level" type="number" min="0" step="1" defaultValue={editingProduct?.reorder_level ?? 5}/></label></div>
                 <label>Compare-at price<input name="compare_at_price" type="number" min="0" step="0.01" defaultValue={editingProduct?.compare_at_price ?? ""}/></label>
                 <label>Servings<input name="servings" type="number" min="1" step="1" defaultValue={editingProduct?.servings ?? ""}/></label>
-                <label>Image URL<input name="image_url" type="url" defaultValue={editingProduct?.image_url ?? ""}/></label>
+                <label>Image URL<input name="image_url" type="url" defaultValue={editingProduct?.image_url ?? ""} placeholder="https://…"/></label>
+                <label className="admin-check-label"><input name="is_visible" type="checkbox" defaultChecked={editingProduct?.is_visible ?? true}/> Show in storefront catalogue</label>
+                <label className="admin-check-label"><input name="is_active" type="checkbox" defaultChecked={editingProduct?.is_active ?? false}/> Available to purchase (verify price and stock first)</label>
                 <label>Description<textarea name="description" rows={3} defaultValue={editingProduct?.description ?? ""}/></label>
                 <label>Ingredients<textarea name="ingredients" rows={3} defaultValue={editingProduct?.ingredients ?? ""}/></label>
                 <label>How to use<textarea name="directions" rows={2} defaultValue={editingProduct?.directions ?? ""}/></label>
@@ -671,7 +685,7 @@ function App() {
               </form>
             </div>
             <div className="admin-panel"><div className="admin-panel-head"><h2>Catalogue ({adminProducts.length})</h2></div>
-              {adminProducts.map(product => <div className="admin-row admin-product-row" key={product.id}><div><strong>{product.name}</strong><small>{product.sku || "No SKU"} · {product.category} · {product.stock} in stock</small></div><b>{money(Number(product.price))}</b><button onClick={() => { setEditingProduct(product); window.scrollTo({top:0,behavior:"smooth"}); }}>Edit</button><button className="admin-danger" onClick={() => void setAdminProductActive(product.id, product.is_active !== false)}>{product.is_active === false ? "Restore" : "Hide"}</button></div>)}
+              {adminProducts.map(product => <div className="admin-row admin-product-row" key={product.id}><div><strong>{product.name}</strong><small>{product.sku || "No SKU"} · {product.category} · {product.is_visible ? "Visible" : "Hidden"} · {product.is_active ? "For sale" : "Display only"}</small></div><b>{money(Number(product.price))}</b><button onClick={() => { setEditingProduct(product); window.scrollTo({top:0,behavior:"smooth"}); }}>Edit</button><button className="admin-danger" onClick={() => void setAdminProductActive(product.id, product.is_active !== false)}>{product.is_active === false ? "Restore" : "Hide"}</button></div>)}
             </div>
           </div>}
           {adminTab === "orders" && <div className="admin-content"><div className="admin-panel"><div className="admin-panel-head"><h2>Orders ({adminOrders.length})</h2></div>
