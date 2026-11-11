@@ -31,13 +31,7 @@ declare
  v_payment_settings jsonb;
 begin
  if v_user_id is null then raise exception 'Please sign in before placing your order.'; end if;
- if p_payment_method not in ('cod','instapay') then raise exception 'Choose Cash on Delivery or InstaPay.'; end if;
- if p_payment_method='instapay' then
-   select setting_value into v_payment_settings from public.store_settings where setting_key='payments';
-   if coalesce(trim(v_payment_settings->>'instapay_alias'),'')='' then
-     raise exception 'InstaPay is not configured yet. Please choose Cash on Delivery.';
-   end if;
- end if;
+ if p_payment_method <> 'cod' then raise exception 'Cash on delivery is the only active payment method. InstaPay and Visa will be added later.'; end if;
  if coalesce(length(trim(p_full_name)),0)<2 or coalesce(length(trim(p_phone)),0)<7
    or coalesce(length(trim(p_address)),0)<5 or coalesce(length(trim(p_city)),0)<2
  then raise exception 'Please provide valid delivery details.'; end if;
@@ -54,7 +48,7 @@ begin
    raise exception 'Every cart line must have a product and a quantity from 1 to 50.';
  end if;
 
- v_payment_status:=case when p_payment_method='instapay' then 'awaiting_confirmation' else 'pending' end;
+ v_payment_status:='pending';
  insert into public.orders(user_id,status,payment_method,payment_status,total,subtotal,shipping_fee,full_name,phone,address,city,notes)
  values(v_user_id,'pending',p_payment_method,v_payment_status,0,0,0,trim(p_full_name),trim(p_phone),trim(p_address),trim(p_city),nullif(trim(coalesce(p_notes,'')),''))
  returning id into v_order_id;
