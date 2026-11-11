@@ -205,7 +205,7 @@ function App() {
       }
     });
     return () => ctx.revert();
-  }, []);;
+  }, []);
 
   async function loadAdminData() {
     if (!supabase || !isAdmin) return;
