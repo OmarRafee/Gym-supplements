@@ -26,3 +26,23 @@ test("malformed and excessive coupon discounts are safe", () => {
   assert.equal(normalizeCouponPreview({valid:true,discount_amount:500},200).discount,200);
   assert.equal(normalizeCouponPreview({valid:true,discount_amount:-2},200).valid,false);
 });
+
+test("empty cart has a zero subtotal and standard delivery fee", () => {
+  assert.deepEqual(calculateCartSummary([], {standard_fee:60,free_shipping_threshold:1500}), {subtotal:0,shipping:60,discount:0,total:60});
+});
+test("free delivery applies above the configured threshold", () => {
+  assert.equal(calculateCartSummary([{price:800,quantity:2}], {standard_fee:75,free_shipping_threshold:1500}).shipping, 0);
+});
+test("invalid shipping settings fall back to safe non-negative delivery", () => {
+  assert.equal(calculateCartSummary([{price:100,quantity:1}], {standard_fee:-50,free_shipping_threshold:1500}).shipping, 0);
+});
+test("invalid prices are rejected", () => {
+  for (const price of [NaN, Infinity, -1, "not-a-price"]) assert.throws(() => calculateCartSummary([{price,quantity:1}]), TypeError);
+});
+test("coupon previews reject missing and non-numeric discounts", () => {
+  assert.equal(normalizeCouponPreview(null,200).valid,false);
+  assert.equal(normalizeCouponPreview({valid:true,discount_amount:"oops"},200).valid,false);
+});
+test("coupon discount cannot exceed a zero basket", () => {
+  assert.deepEqual(normalizeCouponPreview({valid:true,discount_amount:30},0), {valid:true,discount:0,message:"Discount applied."});
+});
