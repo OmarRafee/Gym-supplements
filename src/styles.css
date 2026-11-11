@@ -556,3 +556,45 @@ body{background:#080b0d;color:#f5f7ef}
  html{scroll-behavior:auto}
  .gym-shelf-grid .product-card,.gym-shelf-grid .product-art img,.strength-signs article{transition:none}
 }
+
+/* Rotating hero copy and automatic training-note motion */
+.hero-rotating-title{display:block;min-height:1.78em;will-change:transform,opacity,filter;text-wrap:balance}
+.hero-copy{position:relative}
+.hero-description{max-width:43ch}
+.motivation-note>strong{animation:note-arrive .65s cubic-bezier(.2,.8,.2,1) both}
+@keyframes note-arrive{from{opacity:0;transform:translateY(12px);filter:blur(5px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+.motivation-note{transition:background .25s}
+.inventory-legend{font-size:8px;font-weight:900;letter-spacing:1.2px;color:#9daaa7}
+.inventory-level-list{display:flex;flex-direction:column}
+.inventory-level-row{display:grid;grid-template-columns:minmax(160px,1.3fr) minmax(90px,1fr) 90px 110px;align-items:center;gap:18px;padding:15px 4px;border-bottom:1px solid #344144}
+.inventory-product-name{display:flex;flex-direction:column;gap:5px;min-width:0}
+.inventory-product-name strong{font-size:12px;color:#f4f6ef;overflow-wrap:anywhere}
+.inventory-product-name small{font-size:9px;color:#94a19e}
+.inventory-meter{height:7px;border-radius:20px;overflow:hidden;background:#283437;box-shadow:inset 0 1px 3px #0008}
+.inventory-meter span{display:block;height:100%;border-radius:20px;background:linear-gradient(90deg,#91bd18,#d6ff38);transition:width .5s}
+.inventory-meter span.is-low{background:linear-gradient(90deg,#b87822,#ffc15b)}
+.inventory-level-row>strong{font-size:13px;color:#f4f6ef;font-variant-numeric:tabular-nums}
+.inventory-level-row>strong small{font-size:8px;color:#9ba8a5;font-weight:500}
+.inventory-level-row>strong.inventory-low{color:#ffc15b}
+.inventory-status-ok,.inventory-status-low,.inventory-status-out{font-size:8px;font-weight:900;letter-spacing:.7px;text-align:right}
+.inventory-status-ok{color:#d6ff38}.inventory-status-low{color:#ffc15b}.inventory-status-out{color:#ff7777}
+.inventory-history-heading{margin-top:24px;padding-top:18px;border-top:1px solid #344144}
+.account-button{white-space:nowrap}
+.site-header .account-button{border:1px solid rgba(214,255,56,.45);padding:11px 14px;color:#eaf1e7;transition:background .2s,color .2s,border-color .2s}
+.site-header .account-button:hover{background:#d6ff38;color:#080b0d;border-color:#d6ff38}
+.auth-modal .auth-sub{max-width:42ch}
+.auth-modal form label{display:flex;flex-direction:column;gap:8px}
+.auth-modal form label input{min-height:48px}
+@media(max-width:700px){
+ .hero-rotating-title{min-height:2.55em;font-size:clamp(54px,13vw,78px)}
+ .inventory-level-row{grid-template-columns:minmax(0,1fr) auto;gap:9px 14px;padding:14px 2px}
+ .inventory-product-name{grid-column:1}
+ .inventory-meter{grid-column:1;grid-row:2}
+ .inventory-level-row>strong{grid-column:2;grid-row:1;text-align:right}
+ .inventory-level-row>span{grid-column:2;grid-row:2}
+ .site-header .account-button{padding:9px 10px;font-size:9px}
+}
+@media(prefers-reduced-motion:reduce){
+ .motivation-note>strong{animation:none}
+ .hero-rotating-title{will-change:auto}
+}
