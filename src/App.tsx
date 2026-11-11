@@ -1,5 +1,6 @@
 import "./styles-redesign.css";
 import "./product-image-fallback.css";
+import "./musashi-hero.css";
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowRight, ArrowUpRight, Check, Dumbbell, Flame, Menu, Minus, Plus, ShoppingBag, Target, X, Zap } from "lucide-react";
 import { gsap } from "gsap";
