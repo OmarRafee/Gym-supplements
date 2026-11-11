@@ -667,7 +667,7 @@ function App() {
                   {visibleProducts.slice(shelfIndex * 3, shelfIndex * 3 + 3).map((product, index) => <article className="product-card reveal" key={product.id}>
               <div className={`product-art art-${(shelfIndex * 3 + index) % 3}`}>
                 <span className="product-index">0{shelfIndex * 3 + index + 1} / FORME LABS</span>
-                {product.image_url && /^https?:\/\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className={`mini-tub tub-${(shelfIndex * 3 + index) % 4}`}><span>{(product.brand || "FORME").toUpperCase()}</span><strong>{product.name.toUpperCase()}</strong><small>{(product.size_label || product.category || "SPORTS NUTRITION").toUpperCase()}</small></div>}
+                {product.image_url && /^https?:\/\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className="product-image-pending"><span>{(product.brand || "FORME").toUpperCase()}</span><strong>OFFICIAL<br/>PRODUCT PHOTO</strong><small>AWAITING VERIFIED IMAGE</small></div>}
                 <button className="quick-add" aria-label={!product.is_active ? `View ${product.name}` : `Add ${product.name} to bag`} onClick={() => product.is_active ? addToCart(product.id) : setSelectedProduct(product)}><Plus size={18}/></button>
                 <span className="stock-note">{!product.is_active ? "COMING SOON" : product.stock > 0 ? `${product.stock} UNITS AVAILABLE` : "SOLD OUT"}</span>
               </div>
