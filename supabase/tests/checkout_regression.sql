@@ -23,6 +23,29 @@ declare
   v_rejected boolean;
   v_count integer;
 begin
+  -- Structural RLS checks: private customer/order tables must not have anon policies,
+  -- and ownership/admin policies must be present on the sensitive resources.
+  if exists (
+    select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='public' and c.relname in ('orders','order_items','profiles','admins','coupons')
+      and not c.relrowsecurity
+  ) then raise exception 'FAIL: a sensitive table has RLS disabled'; end if;
+  if exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename in ('orders','order_items','profiles','admins','coupons')
+      and roles::text like '%anon%'
+  ) then raise exception 'FAIL: anonymous role has a policy on a sensitive table'; end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='orders' and policyname='Users view own orders' and qual ilike '%auth.uid%' and qual ilike '%user_id%')
+    then raise exception 'FAIL: customer order ownership policy missing'; end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='profiles' and policyname='Users read own profile' and qual ilike '%auth.uid%' and qual ilike '%id%')
+    then raise exception 'FAIL: customer profile ownership policy missing'; end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='products' and policyname='Admins manage products' and qual ilike '%is_admin%' and with_check ilike '%is_admin%')
+    then raise exception 'FAIL: admin product write policy missing'; end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='coupons' and policyname='Admins manage coupons' and qual ilike '%is_admin%' and with_check ilike '%is_admin%')
+    then raise exception 'FAIL: admin coupon write policy missing'; end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='orders' and policyname='Admins update all orders' and qual ilike '%is_admin%' and with_check ilike '%is_admin%')
+    then raise exception 'FAIL: admin order update policy missing'; end if;
+
   select user_id into v_admin from public.admins order by created_at limit 1;
   if v_admin is null then raise exception 'QA setup failed: no admin account exists'; end if;
 
