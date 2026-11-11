@@ -166,12 +166,14 @@ function App() {
             anticipatePin: 1,
           },
         });
-        story.to(".hero-copy", { yPercent: -22, opacity: 0.15, duration: 0.35 }, 0)
-          .to(capRef.current, { y: -68, rotate: -24, x: 18, duration: 0.28, ease: "power2.in" }, 0.15)
-          .to(powderRef.current, { opacity: 1, scale: 1, y: 26, duration: 0.35, ease: "power2.out" }, 0.32)
-          .to(".powder-grain", { y: 125, x: "random(-90, 90)", opacity: 0, stagger: 0.008, duration: 0.5, ease: "power1.in" }, 0.42)
-          .to(productStageRef.current, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(1.2)" }, 0.58)
-          .to(".stage-product", { y: 0, rotate: 0, opacity: 1, stagger: 0.08, duration: 0.45, ease: "back.out(1.5)" }, 0.6);
+        story.to(".hero-copy", { yPercent: -18, opacity: 0.12, duration: 0.42 }, 0)
+          .to(capRef.current, { y: -82, x: 54, rotate: 58, scale: 0.96, duration: 0.32, ease: "power2.in" }, 0.12)
+          .to(bottleRef.current, { rotate: 19, x: 24, y: 24, duration: 0.48, ease: "power2.inOut" }, 0.28)
+          .to(powderRef.current, { opacity: 1, scale: 1, x: 38, y: 42, duration: 0.36, ease: "power2.out" }, 0.43)
+          .to(".powder-pour", { opacity: 0.92, scaleY: 1.12, duration: 0.34, ease: "power2.out" }, 0.47)
+          .to(".powder-grain", { y: 155, x: "random(-125, 125)", rotation: "random(-180, 180)", opacity: 0, stagger: 0.006, duration: 0.58, ease: "power1.in" }, 0.52)
+          .to(productStageRef.current, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(1.2)" }, 0.68)
+          .to(".stage-product", { y: 0, rotate: 0, opacity: 1, stagger: 0.08, duration: 0.45, ease: "back.out(1.5)" }, 0.7);
       }
 
       gsap.utils.toArray<HTMLElement>(".reveal").forEach((element) => {
@@ -525,18 +527,18 @@ function App() {
           <div className="hero-inner">
             <div className="hero-copy">
               <p className="eyebrow"><span className="eyebrow-line"/> PERFORMANCE, REFINED</p>
-              <h1>{adminSettings.homepage?.hero_title || "Make every rep count."}</h1>
-              <p className="hero-description">{adminSettings.homepage?.hero_subtitle || "Precision nutrition for people who take their progress personally. Nothing extra. Nothing overlooked."}</p>
+              <h1>{adminSettings.homepage?.hero_title || "BUILT FOR THE WORK."}</h1>
+              <p className="hero-description">{adminSettings.homepage?.hero_subtitle || "Creatine. Consistency. No shortcuts. Performance nutrition for the work you put in every day."}</p>
               <div className="hero-links"><a className="button button-light" href="#shop">Explore the collection <ArrowUpRight size={16}/></a><span>BUILT FOR THE LONG RUN</span></div>
             </div>
             <div className="hero-visual">
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
-              <div className="hero-product-label"><span>01 / THE DAILY STANDARD</span><span>WHEY · 2 LB</span></div>
+              <div className="hero-product-label"><span>01 / DAILY PERFORMANCE</span><span>CREATINE · 300 G</span></div>
               <div className="bottle-wrap" ref={bottleRef}>
                 <div className="bottle-cap" ref={capRef}><div className="cap-ridges"/></div>
                 <div className="bottle">
                   <div className="bottle-neck"/>
-                  <div className="bottle-label"><span className="label-brand">{adminSettings.store_profile?.store_name || "FORME"}</span><span className="label-rule"/><strong>WHEY<br/>PROTEIN</strong><small>GOLD STANDARD · 2 LB</small><span className="label-bottom">24G PROTEIN / SERVING</span></div>
+                  <div className="bottle-label"><span className="label-brand">{adminSettings.store_profile?.store_name || "FORME"}</span><span className="label-rule"/><strong>CREATINE<br/>MONOHYDRATE</strong><small>PURE POWDER · 300 G</small><span className="label-bottom">5G PER SERVING</span></div>
                 </div>
               </div>
               <div className="powder-cloud" ref={powderRef}>
@@ -544,11 +546,11 @@ function App() {
                 <div className="powder-pour"/>
               </div>
               <div className="stage-products" ref={productStageRef}>
-                <div className="stage-product stage-one"><span>FORME / 02</span><strong>CREATINE</strong><small>PURE MONOHYDRATE</small></div>
-                <div className="stage-product stage-two"><span>FORME / 03</span><strong>DAILY<br/>GREENS</strong><small>DAILY RITUAL</small></div>
+                <div className="stage-product stage-one"><span>FORME / 02</span><strong>WHEY<br/>PROTEIN</strong><small>DAILY FUEL</small></div>
+                <div className="stage-product stage-two"><span>FORME / 03</span><strong>ELECTRO-<br/>LYTES</strong><small>HYDRATION</small></div>
                 <div className="stage-product stage-three"><span>FORME / 04</span><strong>PRE<br/>WORKOUT</strong><small>FOCUS + ENERGY</small></div>
               </div>
-              <span className="scroll-cue"><ArrowDown size={14}/> SCROLL TO UNSEAL</span>
+              <span className="scroll-cue"><ArrowDown size={14}/> SCROLL TO CRACK THE SEAL</span>
             </div>
           </div>
           <div className="hero-foot"><span>FORMULATED WITH INTENTION</span><span>CAIRO · EGYPT</span><span>01 — 04</span></div>
