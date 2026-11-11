@@ -613,11 +613,12 @@ function App() {
     <>
       <header className="site-header">
         <div className="nav-inner">
-          <a className="wordmark" href="#top">{adminSettings.store_profile?.store_name || "FORME"}<span>®</span></a>
+          <a className="wordmark musashi-wordmark" href="#top">MUSASHI<span>®</span></a>
           <nav className={menuOpen ? "main-nav is-open" : "main-nav"}>
-            <a href="#shop" onClick={() => setMenuOpen(false)}>Shop</a>
-            <a href="#philosophy" onClick={() => setMenuOpen(false)}>Our standard</a>
-            <a href="#journal" onClick={() => setMenuOpen(false)}>Journal</a>
+            <a href="#top" onClick={() => setMenuOpen(false)}>Home</a>
+            <a href="#shop" onClick={() => setMenuOpen(false)}>Products</a>
+            <a href="#philosophy" onClick={() => setMenuOpen(false)}>About</a>
+            <a href="#account" onClick={(e) => {e.preventDefault();setMenuOpen(false);if(userEmail)void loadMyOrders();else{setAuthMode("login");setAuthOpen(true);}}}>Account</a>
           </nav>
           <div className="nav-actions">
             {isAdmin && <button className="text-button admin-nav-button" onClick={() => { setAdminOpen(true); setAdminTab("overview"); void loadAdminData(); }}>ADMIN</button>}
@@ -633,10 +634,11 @@ function App() {
           
           <div className="hero-inner">
             <div className="hero-copy">
-              <p className="eyebrow"><span className="eyebrow-line"/> PERFORMANCE, REFINED</p>
-              <h1 className="hero-rotating-title" aria-live="polite">{heroQuotes[heroQuoteIndex]}</h1>
-              <p className="hero-description">{adminSettings.homepage?.hero_subtitle || "Creatine. Consistency. No shortcuts. Performance nutrition for the work you put in every day."}</p>
-              <div className="hero-links"><a className="button button-light" href="#shop">Explore the collection <ArrowUpRight size={16}/></a><span>BUILT FOR THE LONG RUN</span></div>
+              <p className="hero-kicker">FUEL YOUR POTENTIAL <i/></p>
+              <h1 className="hero-main-title"><span>HIGH PROTEIN</span><em>+ CREATINE</em></h1>
+              <p className="hero-tagline">Build Muscle. Recover Faster. Perform Stronger.</p>
+              <div className="hero-benefits"><div><Dumbbell/><strong>30G</strong><small>PROTEIN</small></div><div><Zap/><strong>19</strong><small>SERVES</small></div><div><Flame/><strong>RECOVERY</strong><small>FOR MUSCLE REPAIR</small></div></div>
+              <div className="hero-links"><a className="button button-light hero-shop-cta" href="#shop">SHOP NOW <ArrowRight size={20}/></a></div>
             </div>
             <div className="hero-visual">
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
