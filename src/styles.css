@@ -713,3 +713,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{border-color:#ff
  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
  .shelf-tier-track,.creatine-powder-photo,.creatine-photo-stage{transform:none!important}
 }
+
+.checkout-payment-choice{display:grid;gap:7px;padding:14px 16px;background:#171717;border:1px solid #4a2424;border-left:3px solid #ff1a1a}
+.checkout-payment-choice span{font-size:9px;letter-spacing:1.4px;color:#ff6969;font-weight:800}
+.checkout-payment-choice strong{font:700 18px "Oswald","Arial Narrow",sans-serif;letter-spacing:.06em;color:#fff}
+.checkout-payment-choice small{font-size:11px;line-height:1.6;color:#c4c4c4}
