@@ -330,3 +330,20 @@ body{background:#07090b;color:#f2f4ed}
 @media(max-width:900px){.gym-shelf-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:34px 14px}.gym-shelf-grid:before{top:50%}.gym-shelf-grid .product-art{height:230px}}
 @media(max-width:560px){.musashi-wrap{width:78vw;height:98vw;max-height:390px}.gym-shelf-grid{grid-template-columns:1fr;padding:14px 12px 32px;gap:22px}.gym-shelf-grid:before{display:none}.gym-shelf-grid .product-art{height:250px}.gym-shelf-grid .product-card{padding:10px}.gym-shelf-grid .product-meta{align-items:center}}
 @media(prefers-reduced-motion:reduce){.gym-shelf-grid .product-card,.gym-shelf-grid .product-art img{transition:none}}
+
+/* Musashi visual identity for the opening hero tub */
+.musashi-wrap{width:min(360px,42vw);height:min(430px,54vw);display:flex;align-items:center;flex-direction:column;justify-content:flex-start;transform-origin:50% 15%;filter:drop-shadow(0 35px 34px rgba(0,0,0,.68))}
+.musashi-wrap .bottle-cap{width:220px;height:54px;border-radius:13px 13px 7px 7px}
+.musashi-wrap .bottle{width:236px;height:310px;margin-top:-2px;border-radius:25px 25px 30px 30px}
+.musashi-wrap .bottle-neck{width:160px;left:37px;top:-16px}
+.musashi-wrap .bottle-label{top:42px;left:12px;right:12px;height:220px;background:linear-gradient(110deg,#25282a,#111315 55%,#292c2e);color:#f6f6f2;border:1px solid #62686a;box-shadow:inset 0 0 0 1px #ffffff12}
+.musashi-label .label-brand{font:900 31px/1 Manrope;color:#ed2738;letter-spacing:1px}
+.musashi-label .musashi-fuel{font-size:12px;letter-spacing:1px;align-self:flex-start;margin-left:16px;color:#f7f7f3}
+.musashi-label strong{font:900 26px/1 Manrope;color:#fff;letter-spacing:-1px;margin-top:12px}
+.musashi-label>small:not(.musashi-fuel){font-size:9px;letter-spacing:.6px;color:#eee}
+.musashi-facts{display:flex;gap:20px;margin-top:14px;border-top:1px solid #aab0b0;padding-top:10px;width:82%;justify-content:center}
+.musashi-facts b{font:900 23px Manrope;display:flex;flex-direction:column;align-items:center}
+.musashi-facts small{font:700 7px Manrope;letter-spacing:.7px}
+.musashi-label .label-bottom{font-size:7px;color:#d8d8d4;bottom:10px}
+.gym-shelf-grid .product-card{cursor:default}
+@media(max-width:560px){.musashi-wrap{width:80vw;height:96vw;max-height:400px}.musashi-wrap .bottle{width:220px;height:292px}.musashi-wrap .bottle-cap{width:205px}.musashi-wrap .bottle-label{height:205px}}
