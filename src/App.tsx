@@ -125,7 +125,7 @@ function App() {
     client.from("products").select("id,name,category,description,price,compare_at_price,stock,image_url,brand,size_label,servings,ingredients,directions,warnings").eq("is_active", true).order("created_at")
       .then(({ data, error }) => {
         if (!active) return;
-        if (!error) setProducts((data?.length ? data : fallbackProducts.map(item => ({...item, price: 0, stock: 0, image_url: item.id === "creatine" ? "/Gym-supplements/musashi-creatine.webp" : null, is_showcase: true }))) as Product[]);
+        if (!error) setProducts((data?.length ? data : fallbackProducts.map(item => ({...item, price: 0, stock: 0, image_url: null, is_showcase: true }))) as Product[]);
         else setNotice("The product catalogue could not be loaded. Please try again shortly.");
       });
     client.rpc("get_public_store_settings").then(({data}) => {
@@ -538,8 +538,8 @@ function App() {
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
               <div className="hero-product-label"><span>01 / DAILY PERFORMANCE</span><span>CREATINE · 300 G</span></div>
               <div className="bottle-wrap musashi-wrap" ref={bottleRef}>
-                <img className="musashi-bottle-photo" src="/Gym-supplements/musashi-creatine.webp" alt="Musashi Fuel Creatine Monohydrate tub"/>
-                <img className="musashi-cap-photo" ref={capRef} src="/Gym-supplements/musashi-creatine.webp" alt="" aria-hidden="true"/>
+                <div className="bottle-cap" ref={capRef}><div className="cap-ridges"/></div>
+                <div className="bottle musashi-bottle"><div className="bottle-neck"/><div className="bottle-label musashi-label"><span className="label-brand">MUSASHI</span><small className="musashi-fuel">FUEL</small><strong>CREATINE</strong><small>MONOHYDRATE 1G/G</small><div className="musashi-facts"><b>5G<small>PER SERVE</small></b><b>70<small>SERVES</small></b></div><span className="label-bottom">UNFLAVOURED · 350G ORAL POWDER</span></div></div>
               </div>
               <div className="powder-cloud" ref={powderRef}>
                 {Array.from({length: 38}, (_, i) => <i className="powder-grain" key={i} style={{ left: `${(i * 37) % 100}%`, top: `${(i * 19) % 65}%`, width: `${3 + (i % 5)}px`, height: `${3 + (i % 5)}px` }}/>)}
