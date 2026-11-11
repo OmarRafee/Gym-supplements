@@ -149,7 +149,7 @@ begin
   perform set_config('request.jwt.claim.sub',v_admin::text,true);
   perform public.admin_set_order_status(v_order,'cancelled');
   select stock into v_stock from public.products where id=v_product;
-  if v_stock <> 2 then raise exception 'FAIL: cancellation did not restore stock'; end if;
+  if v_stock <> 1 then raise exception 'FAIL: cancellation did not restore one unit while the second order remains'; end if;
   select count(*) into v_count from public.inventory_movements where order_id=v_order and movement_type='return' and quantity_change=1;
   if v_count <> 1 then raise exception 'FAIL: return inventory movement missing'; end if;
   select count(*) into v_count from public.order_status_history where order_id=v_order and new_status='cancelled';
