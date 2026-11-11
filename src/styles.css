@@ -111,7 +111,7 @@ body{background:#07090b;color:#f2f4ed}
 }
 .hero:after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.13;background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:58px 58px;mask-image:linear-gradient(90deg,transparent,#000 60%,transparent)}
 .hero-copy{z-index:4}
-.hero .eyebrow,.hero .eyebrow-line{color:var(--accent);background-color:var(--accent)}
+.hero .eyebrow{color:var(--accent)}.hero .eyebrow-line{background-color:var(--accent)}
 .hero h1{font-weight:800;text-transform:uppercase;letter-spacing:-.095em;line-height:.86;max-width:720px}
 .hero h1 em,.hero h1 strong{color:var(--accent)}
 .hero-description{color:#aab3b6;max-width:410px}
