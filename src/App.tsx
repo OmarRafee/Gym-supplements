@@ -32,6 +32,8 @@ type Product = {
   image_url: string | null;
   is_active?: boolean;
   is_visible?: boolean;
+  name_ar?: string | null;
+  description_ar?: string | null;
 };
 
 type Coupon = { id:string; code:string; description:string|null; discount_type:"percentage"|"fixed"; discount_value:number; minimum_order:number; maximum_discount:number|null; usage_limit:number|null; used_count:number; starts_at:string|null; ends_at:string|null; is_active:boolean };
@@ -63,6 +65,10 @@ function App() {
   const heroRef = useRef<HTMLElement>(null);
   const bottleRef = useRef<HTMLDivElement>(null);
   const creatinePhotoRef = useRef<HTMLImageElement>(null);
+  const [theme, setTheme] = useState<"dark"|"light">(() => window.localStorage.getItem("musashi-theme") === "light" ? "light" : "dark");
+  const [language, setLanguage] = useState<"en"|"ar">(() => window.localStorage.getItem("musashi-language") === "ar" ? "ar" : "en");
+  const isArabic = language === "ar";
+  const tr = (en: string, ar: string) => isArabic ? ar : en;
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [motivationIndex, setMotivationIndex] = useState(0);
@@ -127,6 +133,12 @@ function App() {
     try { window.localStorage.setItem("forme-cart", JSON.stringify(cart)); } catch { /* Storage may be unavailable in private browsing. */ }
   }, [cart]);
   useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.lang = language;
+    document.documentElement.dir = isArabic ? "rtl" : "ltr";
+    try { window.localStorage.setItem("musashi-theme", theme); window.localStorage.setItem("musashi-language", language); } catch { /* Preferences remain usable if storage is blocked. */ }
+  }, [theme, language, isArabic]);
+  useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setInterval(() => setHeroQuoteIndex(index => (index + 1) % heroQuotes.length), 2800);
     return () => window.clearInterval(timer);
@@ -151,7 +163,7 @@ function App() {
     let active = true;
     const loadProducts = async () => {
       const { data, error } = await client.from("products")
-        .select("id,name,slug,sku,category,description,price,compare_at_price,stock,image_url,brand,size_label,servings,ingredients,directions,warnings,is_active,is_visible,is_featured")
+        .select("id,name,name_ar,description_ar,slug,sku,category,description,price,compare_at_price,stock,image_url,brand,size_label,servings,ingredients,directions,warnings,is_active,is_visible,is_featured")
         .eq("is_visible", true).order("is_featured", { ascending: false }).order("created_at", { ascending: false });
       if (!active) return;
       if (error) setNotice("Catalogue connection error: " + error.message);
@@ -191,13 +203,9 @@ function App() {
         intro.from(".nav-inner", { y: -18, opacity: 0, duration: 0.65 })
           .from(".hero-copy > *", { y: 24, opacity: 0, duration: 0.65, stagger: 0.09 }, "-=0.25")
           .from(bottleRef.current, { y: -80, rotate: -3, opacity: 0, duration: 0.9, ease: "power2.out" }, "-=0.35");
-        if (bottleRef.current && creatinePhotoRef.current) {
-          const story = gsap.timeline({ scrollTrigger: { trigger: heroRef.current, start: "top top", end: "+=85%", scrub: 0.55, pin: true, anticipatePin: 1 } });
-          story.to(".hero-copy", { yPercent: -8, opacity: 0.28, duration: 0.3 }, 0)
-            .to(bottleRef.current, { rotate: 5, x: -8, y: -4, scale: 1.06, transformOrigin: "50% 50%", duration: 1, ease: "none" }, 0.12)
-            .to(creatinePhotoRef.current, { rotationY: 28, rotationX: -7, rotationZ: -5, y: -24, scale: 1.08, transformPerspective: 1200, transformOrigin: "50% 52%", duration: 1, ease: "none" }, 0.12)
-            .to(".hero-product-label", { y: -14, opacity: 0.55, duration: 0.45 }, 0.25);
-        }
+        // Product photography remains fixed; motion belongs to the surrounding atmosphere.
+        gsap.to(".visual-orbit.orbit-one", { scale: 1.035, opacity: 0.72, ease: "none", scrollTrigger: { trigger: heroRef.current, start: "top top", end: "bottom top", scrub: 0.6 } });
+        gsap.to(".hero-visual:before", { yPercent: -8, ease: "none", scrollTrigger: { trigger: heroRef.current, start: "top top", end: "bottom top", scrub: 0.6 } });
         gsap.utils.toArray<HTMLElement>(".shelf-tier-track").forEach(track => {
           gsap.fromTo(track, { x: 18 }, { x: -18, ease: "none", scrollTrigger: { trigger: track, start: "top 88%", end: "bottom 18%", scrub: 0.35 } });
         });
@@ -343,10 +351,20 @@ function App() {
     event.preventDefault();
     if (!supabase || !isAdmin) return;
     const form = new FormData(event.currentTarget);
+    let heroImageUrl = adminSettings.homepage?.hero_image_url || null;
+    const heroFile = form.get("hero_image");
+    if (heroFile instanceof File && heroFile.size > 0) {
+      if (!/^image\\/(jpeg|png|webp|avif)$/.test(heroFile.type) || heroFile.size > 8 * 1024 * 1024) { setNotice("Hero image must be JPG, PNG, WEBP or AVIF and no larger than 8 MB."); return; }
+      const safeName = heroFile.name.toLowerCase().replace(/[^a-z0-9.-]+/g, "-");
+      const objectPath = `homepage/${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage.from("site-media").upload(objectPath, heroFile, { contentType: heroFile.type, cacheControl: "31536000", upsert: false });
+      if (uploadError) { setNotice("Hero image upload failed: " + uploadError.message); return; }
+      heroImageUrl = supabase.storage.from("site-media").getPublicUrl(objectPath).data.publicUrl;
+    }
     const records = [
       { setting_key: "store_profile", setting_value: { store_name: String(form.get("store_name") || "FORME").trim(), support_email: String(form.get("support_email") || "").trim(), support_phone: String(form.get("support_phone") || "").trim(), currency: "EGP", country: "Egypt" }, description: "Public store identity and contact details" },
       { setting_key: "shipping", setting_value: { standard_fee: Number(form.get("standard_fee") || 0), free_shipping_threshold: Number(form.get("free_shipping_threshold") || 0), estimated_delivery: String(form.get("estimated_delivery") || "").trim() }, description: "Checkout delivery pricing and estimate" },
-      { setting_key: "homepage", setting_value: { announcement: String(form.get("announcement") || "").trim(), hero_title: String(form.get("hero_title") || "").trim(), hero_subtitle: String(form.get("hero_subtitle") || "").trim() }, description: "Homepage copy and announcement bar" },
+      { setting_key: "homepage", setting_value: { ...(adminSettings.homepage || {}), announcement: String(form.get("announcement") || "").trim(), hero_title: String(form.get("hero_title") || "").trim(), hero_subtitle: String(form.get("hero_subtitle") || "").trim(), kicker: String(form.get("hero_kicker") || "").trim(), hero_line_one: String(form.get("hero_line_one") || "").trim(), hero_line_two: String(form.get("hero_line_two") || "").trim(), hero_subtitle_ar: String(form.get("hero_subtitle_ar") || "").trim(), kicker_ar: String(form.get("hero_kicker_ar") || "").trim(), hero_line_one_ar: String(form.get("hero_line_one_ar") || "").trim(), hero_line_two_ar: String(form.get("hero_line_two_ar") || "").trim(), hero_image_url: heroImageUrl }, description: "Bilingual homepage content and hero media" },
       { setting_key: "social", setting_value: { instagram_url: String(form.get("instagram_url") || "").trim(), facebook_url: String(form.get("facebook_url") || "").trim(), whatsapp_number: String(form.get("whatsapp_number") || "").trim() }, description: "Store social and support links" },
       { setting_key: "legal", setting_value: { legal_name: String(form.get("legal_name") || "").trim(), business_address: String(form.get("business_address") || "").trim(), commercial_register: String(form.get("commercial_register") || "").trim(), tax_number: String(form.get("tax_number") || "").trim(), return_policy: String(form.get("return_policy") || "").trim(), privacy_policy: String(form.get("privacy_policy") || "").trim(), terms_conditions: String(form.get("terms_conditions") || "").trim(), shipping_policy: String(form.get("shipping_policy") || "").trim() }, description: "Seller legal details and customer-facing policy" },
       { setting_key: "payments", setting_value: { instapay_alias: String(form.get("instapay_alias") || "").trim(), account_name: String(form.get("instapay_account_name") || "").trim(), instructions: String(form.get("instapay_instructions") || "").trim() }, description: "Manual payment instructions" },
@@ -366,7 +384,7 @@ function App() {
     const name = String(form.get("name") ?? "").trim();
     const slug = String(form.get("slug") ?? "").trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const payload = {
-      name, slug,
+      name, name_ar: String(form.get("name_ar") ?? "").trim() || null, description_ar: String(form.get("description_ar") ?? "").trim() || null, slug,
       sku: String(form.get("sku") ?? "").trim() || null,
       brand: String(form.get("brand") ?? "").trim() || null,
       size_label: String(form.get("size_label") ?? "").trim() || null,
@@ -384,11 +402,20 @@ function App() {
       directions: String(form.get("directions") ?? "").trim() || null,
       warnings: String(form.get("warnings") ?? "").trim() || null,
       is_featured: form.get("is_featured") === "on",
-      image_url: String(form.get("image_url") ?? "").trim() || null,
+      image_url: editingProduct?.image_url ?? null,
     };
     if (!name || !payload.category || !Number.isFinite(payload.price) || payload.price < 0 || !Number.isInteger(payload.stock) || payload.stock < 0) {
       setNotice("Check the product name, category, price and stock values.");
       return;
+    }
+    const imageFile = form.get("product_image");
+    if (imageFile instanceof File && imageFile.size > 0) {
+      if (!/^image\\/(jpeg|png|webp|avif)$/.test(imageFile.type) || imageFile.size > 5 * 1024 * 1024) { setNotice("Choose a JPG, PNG, WEBP or AVIF image up to 5 MB."); return; }
+      const safeName = imageFile.name.toLowerCase().replace(/[^a-z0-9.-]+/g, "-");
+      const objectPath = `products/${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage.from("product-images").upload(objectPath, imageFile, { contentType: imageFile.type, cacheControl: "31536000", upsert: false });
+      if (uploadError) { setNotice("Image upload failed: " + uploadError.message); return; }
+      payload.image_url = supabase.storage.from("product-images").getPublicUrl(objectPath).data.publicUrl;
     }
     const result = editingProduct
       ? await supabase.from("products").update(payload).eq("id", editingProduct.id)
@@ -615,12 +642,14 @@ function App() {
         <div className="nav-inner">
           <a className="wordmark musashi-wordmark" href="#top">MUSASHI<span>®</span></a>
           <nav className={menuOpen ? "main-nav is-open" : "main-nav"}>
-            <a href="#top" onClick={() => setMenuOpen(false)}>Home</a>
-            <a href="#shop" onClick={() => setMenuOpen(false)}>Products</a>
-            <a href="#philosophy" onClick={() => setMenuOpen(false)}>About</a>
-            <a href="#account" onClick={(e) => {e.preventDefault();setMenuOpen(false);if(userEmail)void loadMyOrders();else{setAuthMode("login");setAuthOpen(true);}}}>Account</a>
+            <a href="#top" onClick={() => setMenuOpen(false)}>{tr("Home","الرئيسية")}</a>
+            <a href="#shop" onClick={() => setMenuOpen(false)}>{tr("Products","المنتجات")}</a>
+            <a href="#philosophy" onClick={() => setMenuOpen(false)}>{tr("About","عن المتجر")}</a>
+            <a href="#account" onClick={(e) => {e.preventDefault();setMenuOpen(false);if(userEmail)void loadMyOrders();else{setAuthMode("login");setAuthOpen(true);}}}>{tr("Account","حسابي")}</a>
           </nav>
           <div className="nav-actions">
+            <button className="preference-toggle" type="button" onClick={() => setLanguage(language === "en" ? "ar" : "en")} aria-label="Change language">{language === "en" ? "عربي" : "EN"}</button>
+            <button className="preference-toggle theme-toggle" type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label="Change colour theme">{theme === "dark" ? "☼" : "☾"}</button>
             {isAdmin && <button className="text-button admin-nav-button" onClick={() => { setAdminOpen(true); setAdminTab("overview"); void loadAdminData(); }}>ADMIN</button>}
             <button className="text-button account-button" onClick={() => { if (userEmail) void loadMyOrders(); else { setAuthMode("login"); setAuthOpen(true); } }}>{userEmail ? "MY ACCOUNT" : "SIGN IN / JOIN"}</button>
             <button className="bag-button" aria-label="Open cart" onClick={() => setCartOpen(true)}><ShoppingBag size={17}/><span>Bag ({Object.values(cart).reduce((a,b) => a+b, 0)})</span></button>
@@ -634,17 +663,17 @@ function App() {
           
           <div className="hero-inner">
             <div className="hero-copy">
-              <p className="hero-kicker">FUEL YOUR POTENTIAL <i/></p>
-              <h1 className="hero-main-title"><span>HIGH PROTEIN</span><em>+ CREATINE</em></h1>
-              <p className="hero-tagline">Build Muscle. Recover Faster. Perform Stronger.</p>
-              <div className="hero-benefits"><div><Dumbbell/><strong>30G</strong><small>PROTEIN</small></div><div><Zap/><strong>19</strong><small>SERVES</small></div><div><Flame/><strong>RECOVERY</strong><small>FOR MUSCLE REPAIR</small></div></div>
-              <div className="hero-links"><a className="button button-light hero-shop-cta" href="#shop">SHOP NOW <ArrowRight size={20}/></a></div>
+              <p className="hero-kicker">{isArabic ? (adminSettings.homepage?.kicker_ar || "أطلق إمكاناتك") : (adminSettings.homepage?.kicker || "FUEL YOUR POTENTIAL")} <i/></p>
+              <h1 className="hero-main-title"><span>{isArabic ? (adminSettings.homepage?.hero_line_one_ar || "بروتين عالي") : (adminSettings.homepage?.hero_line_one || "HIGH PROTEIN")}</span><em>{isArabic ? (adminSettings.homepage?.hero_line_two_ar || "+ كرياتين") : (adminSettings.homepage?.hero_line_two || "+ CREATINE")}</em></h1>
+              <p className="hero-tagline">{isArabic ? (adminSettings.homepage?.hero_subtitle_ar || "ابنِ العضلات. تعافَ أسرع. أدِّ بشكل أقوى.") : (adminSettings.homepage?.hero_subtitle || "Build Muscle. Recover Faster. Perform Stronger.")}</p>
+              <div className="hero-benefits"><div><Dumbbell/><strong>30G</strong><small>{tr("PROTEIN","بروتين")}</small></div><div><Zap/><strong>19</strong><small>{tr("SERVES","حصة")}</small></div><div><Flame/><strong>{tr("RECOVERY","تعافٍ")}</strong><small>{tr("FOR MUSCLE REPAIR","لدعم تعافي العضلات")}</small></div></div>
+              <div className="hero-links"><a className="button button-light hero-shop-cta" href="#shop">{tr("SHOP NOW","تسوق الآن")} <ArrowRight size={20}/></a></div>
             </div>
             <div className="hero-visual">
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
               <div className="hero-product-label"><span>01 / MUSASHI RECOVER</span><span>HIGH PROTEIN + CREATINE · 900 G</span></div>
               <div className="creatine-photo-stage" ref={bottleRef}>
-                <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={import.meta.env.BASE_URL + "musashi-product.webp"} alt="Musashi Recover high protein and creatine 900 gram tub" fetchPriority="high" decoding="async" onLoad={(event) => { event.currentTarget.style.opacity = "1"; const fallback = event.currentTarget.nextElementSibling as HTMLElement | null; if (fallback) fallback.style.display = "none"; }} onError={(event) => { event.currentTarget.style.display = "none"; const fallback = event.currentTarget.nextElementSibling as HTMLElement | null; if (fallback) fallback.style.display = "flex"; }} />
+                <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={adminSettings.homepage?.hero_image_url || (import.meta.env.BASE_URL + "musashi-product.webp")} alt="Musashi Recover high protein and creatine 900 gram tub" fetchPriority="high" decoding="async" onLoad={(event) => { event.currentTarget.style.opacity = "1"; const fallback = event.currentTarget.nextElementSibling as HTMLElement | null; if (fallback) fallback.style.display = "none"; }} onError={(event) => { event.currentTarget.style.display = "none"; event.currentTarget.parentElement?.classList.add("hero-image-fallback"); }} />
                 <div className="hero-fallback-tub" aria-hidden="true"><span className="fallback-cap"/><span className="fallback-label"><b>MUSASHI</b><strong>RECOVER<br/>HIGH PROTEIN<br/>+ CREATINE</strong><small>30G PROTEIN&nbsp;&nbsp; | &nbsp;&nbsp;19 SERVES</small></span></div>
                 <span className="photo-caption">MUSASHI RECOVER · 900 G</span>
               </div>
@@ -676,8 +705,8 @@ function App() {
                 <button className="quick-add" aria-label={!product.is_active ? `View ${product.name}` : `Add ${product.name} to bag`} onClick={() => product.is_active ? addToCart(product.id) : setSelectedProduct(product)}><Plus size={18}/></button>
                 <span className="stock-note">{!product.is_active ? "COMING SOON" : product.stock > 0 ? `${product.stock} UNITS AVAILABLE` : "SOLD OUT"}</span>
               </div>
-              <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{product.name}</h3></div><div className="product-pricing"><strong>{product.is_active ? money(Number(product.price)) : "AVAILABILITY SOON"}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
-              <p className="product-description">{product.description}</p><button className="product-details-link" onClick={() => setSelectedProduct(product)}>Product details <ArrowUpRight size={13}/></button>
+              <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "FORME LABS"}</span><h3>{isArabic ? (product.name_ar || product.name) : product.name}</h3></div><div className="product-pricing"><strong>{product.is_active ? money(Number(product.price)) : "AVAILABILITY SOON"}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
+              <p className="product-description">{isArabic ? (product.description_ar || product.description) : product.description}</p><button className="product-details-link" onClick={() => setSelectedProduct(product)}>Product details <ArrowUpRight size={13}/></button>
             </article>)}
                 </div>
                 <div className="shelf-front-rail"><span>STOCKROOM / TIER {String(shelfIndex + 1).padStart(2,"0")}</span><i/></div>
@@ -721,7 +750,7 @@ function App() {
 
 
       {myOrdersOpen && <div className="modal-backdrop" onClick={()=>setMyOrdersOpen(false)}><section className="auth-modal my-orders-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setMyOrdersOpen(false)}><X/></button><p className="eyebrow">YOUR FORME ACCOUNT</p><h2>Your orders.</h2><p className="auth-sub">{userEmail}</p>{myOrdersLoading ? <p className="admin-loading">Loading your orders…</p> : myOrders.length ? <div className="my-orders-list">{myOrders.map(order=><article key={order.id}><div className="my-order-heading"><strong>{order.order_number || order.id.slice(0,8)}</strong><span className={"status-pill status-"+order.status}>{order.status === "pending" ? "Received" : order.status}</span></div><small>{new Date(order.created_at).toLocaleDateString()} · {order.payment_method.toUpperCase()}</small>{(order.order_items ?? []).map((item:any,i:number)=><p key={i}>{item.product_name} × {item.quantity}</p>)}<div className="my-order-foot"><b>{money(Number(order.total))}</b><span>{order.payment_status.replaceAll("_"," ")}</span></div>{order.tracking_number && <small>Tracking: {order.tracking_number}</small>}</article>)}</div> : <p className="admin-empty">You haven't placed an order yet. Your next step starts in the collection.</p>}<button className="switch-auth" onClick={async()=>{await supabase?.auth.signOut();setMyOrdersOpen(false);setNotice("You have signed out.");}}>Sign out</button></section></div>}
-      {selectedProduct && <div className="modal-backdrop" onClick={() => setSelectedProduct(null)}><section className="product-detail-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setSelectedProduct(null)}><X/></button><div className="product-detail-art">{selectedProduct.image_url ? <img src={selectedProduct.image_url} alt={selectedProduct.name}/> : <div className="mini-tub"><span>{adminSettings.store_profile?.store_name || "FORME"}</span><strong>{selectedProduct.name.toUpperCase()}</strong><small>{selectedProduct.category?.toUpperCase()}</small></div>}</div><div className="product-detail-copy"><p className="eyebrow">{selectedProduct.category?.toUpperCase()} / PRODUCT DETAILS</p><h2>{selectedProduct.name}</h2>{selectedProduct.brand && <p className="product-brand">{selectedProduct.brand}</p>}<p>{selectedProduct.description}</p><strong className="product-detail-price">{selectedProduct.is_active ? money(Number(selectedProduct.price)) : "AVAILABILITY TO BE CONFIRMED"}</strong>{selectedProduct.size_label && <div className="product-detail-fact"><span>SIZE</span><b>{selectedProduct.size_label}</b></div>}{selectedProduct.servings && <div className="product-detail-fact"><span>SERVINGS</span><b>{selectedProduct.servings}</b></div>}{selectedProduct.ingredients && <div className="product-detail-section"><strong>Ingredients</strong><p>{selectedProduct.ingredients}</p></div>}{selectedProduct.directions && <div className="product-detail-section"><strong>How to use</strong><p>{selectedProduct.directions}</p></div>}{selectedProduct.warnings && <div className="product-detail-section"><strong>Important information</strong><p>{selectedProduct.warnings}</p></div>}<button className="button button-dark full-button" disabled={!selectedProduct.is_active || selectedProduct.stock<=0} onClick={()=>{addToCart(selectedProduct.id);setSelectedProduct(null);}}>{!selectedProduct.is_active ? "Coming soon" : selectedProduct.stock<=0 ? "Out of stock" : "Add to bag"} <ArrowRight size={16}/></button></div></section></div>}
+      {selectedProduct && <div className="modal-backdrop" onClick={() => setSelectedProduct(null)}><section className="product-detail-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setSelectedProduct(null)}><X/></button><div className="product-detail-art">{selectedProduct.image_url ? <img src={selectedProduct.image_url} alt={selectedProduct.name}/> : <div className="mini-tub"><span>{adminSettings.store_profile?.store_name || "FORME"}</span><strong>{selectedProduct.name.toUpperCase()}</strong><small>{selectedProduct.category?.toUpperCase()}</small></div>}</div><div className="product-detail-copy"><p className="eyebrow">{selectedProduct.category?.toUpperCase()} / PRODUCT DETAILS</p><h2>{isArabic ? (selectedProduct.name_ar || selectedProduct.name) : selectedProduct.name}</h2>{selectedProduct.brand && <p className="product-brand">{selectedProduct.brand}</p>}<p>{isArabic ? (selectedProduct.description_ar || selectedProduct.description) : selectedProduct.description}</p><strong className="product-detail-price">{selectedProduct.is_active ? money(Number(selectedProduct.price)) : "AVAILABILITY TO BE CONFIRMED"}</strong>{selectedProduct.size_label && <div className="product-detail-fact"><span>SIZE</span><b>{selectedProduct.size_label}</b></div>}{selectedProduct.servings && <div className="product-detail-fact"><span>SERVINGS</span><b>{selectedProduct.servings}</b></div>}{selectedProduct.ingredients && <div className="product-detail-section"><strong>Ingredients</strong><p>{selectedProduct.ingredients}</p></div>}{selectedProduct.directions && <div className="product-detail-section"><strong>How to use</strong><p>{selectedProduct.directions}</p></div>}{selectedProduct.warnings && <div className="product-detail-section"><strong>Important information</strong><p>{selectedProduct.warnings}</p></div>}<button className="button button-dark full-button" disabled={!selectedProduct.is_active || selectedProduct.stock<=0} onClick={()=>{addToCart(selectedProduct.id);setSelectedProduct(null);}}>{!selectedProduct.is_active ? "Coming soon" : selectedProduct.stock<=0 ? "Out of stock" : "Add to bag"} <ArrowRight size={16}/></button></div></section></div>}
       {checkoutOpen && <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}><section className="auth-modal checkout-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setCheckoutOpen(false)}><X/></button><p className="eyebrow">SECURE CHECKOUT</p><h2>Almost yours.</h2><p className="auth-sub">Delivery details · Your order is confirmed after you submit this form.</p>
           <div className="coupon-entry"><div><label htmlFor="checkout-coupon">Discount code</label><div className="coupon-entry-row"><input id="checkout-coupon" value={couponCode} onChange={e => {setCouponCode(e.target.value.toUpperCase());setCouponDiscount(0);setCouponMessage("");}} placeholder="Enter your code"/><button type="button" onClick={() => void previewCoupon()}>Apply</button></div></div>{couponMessage && <small className={couponDiscount > 0 ? "coupon-success" : "coupon-error"}>{couponMessage}</small>}</div>
           <div className="checkout-summary"><span>Subtotal <b>{money(cartTotal)}</b></span><span>Delivery <b>{estimatedShipping===0 ? "FREE" : money(estimatedShipping)}</b></span>{couponDiscount>0 && <span>Discount <b>−{money(couponDiscount)}</b></span>}<strong>Total <b>{money(checkoutTotal)}</b></strong></div>
@@ -774,7 +803,7 @@ function App() {
                 <div className="admin-form-grid"><label>Stock<input name="stock" type="number" min="0" step="1" required defaultValue={editingProduct?.stock ?? 0}/></label><label>Reorder at<input name="reorder_level" type="number" min="0" step="1" defaultValue={editingProduct?.reorder_level ?? 5}/></label></div>
                 <label>Compare-at price<input name="compare_at_price" type="number" min="0" step="0.01" defaultValue={editingProduct?.compare_at_price ?? ""}/></label>
                 <label>Servings<input name="servings" type="number" min="1" step="1" defaultValue={editingProduct?.servings ?? ""}/></label>
-                <label>Image URL<input name="image_url" type="url" defaultValue={editingProduct?.image_url ?? ""} placeholder="https://…"/></label>
+                <label>Upload product photo<input name="product_image" type="file" accept="image/jpeg,image/png,image/webp,image/avif"/></label>{editingProduct?.image_url && <div className="admin-image-preview"><img src={editingProduct.image_url} alt="Current product"/> <small>Current image · upload a new file to replace it</small></div>}<label>Arabic product name<input name="name_ar" defaultValue={editingProduct?.name_ar ?? ""}/></label><label>Arabic description<textarea name="description_ar" rows={3} defaultValue={editingProduct?.description_ar ?? ""}/></label>
                 <label className="admin-check-label"><input name="is_visible" type="checkbox" defaultChecked={editingProduct?.is_visible ?? true}/> Show in storefront catalogue</label>
                 <label className="admin-check-label"><input name="is_active" type="checkbox" defaultChecked={editingProduct?.is_active ?? false}/> Available to purchase (verify price and stock first)</label>
                 <label>Description<textarea name="description" rows={3} defaultValue={editingProduct?.description ?? ""}/></label>
@@ -841,7 +870,7 @@ function App() {
             <form className="admin-settings-form" key={JSON.stringify(adminSettings)} onSubmit={saveStoreSettings}>
               <h3>Brand and customer support</h3><div className="admin-form-grid"><label>Store name<input name="store_name" defaultValue={adminSettings.store_profile?.store_name ?? "FORME"}/></label><label>Support email<input name="support_email" type="email" defaultValue={adminSettings.store_profile?.support_email ?? ""}/></label><label>Support phone<input name="support_phone" defaultValue={adminSettings.store_profile?.support_phone ?? ""}/></label><label>WhatsApp number<input name="whatsapp_number" defaultValue={adminSettings.social?.whatsapp_number ?? ""}/></label></div>
               <h3>Delivery and checkout</h3><div className="admin-form-grid"><label>Standard delivery fee (EGP)<input name="standard_fee" type="number" min="0" step="0.01" defaultValue={adminSettings.shipping?.standard_fee ?? 60}/></label><label>Free delivery from (EGP)<input name="free_shipping_threshold" type="number" min="0" step="0.01" defaultValue={adminSettings.shipping?.free_shipping_threshold ?? 1500}/></label></div><label>Estimated delivery time<input name="estimated_delivery" defaultValue={adminSettings.shipping?.estimated_delivery ?? "2–5 business days"}/></label>
-              <h3>Homepage messaging</h3><label>Announcement bar<input name="announcement" defaultValue={adminSettings.homepage?.announcement ?? ""}/></label><label>Hero headline<input name="hero_title" defaultValue={adminSettings.homepage?.hero_title ?? "Make every rep count."}/></label><label>Hero supporting text<textarea name="hero_subtitle" rows={3} defaultValue={adminSettings.homepage?.hero_subtitle ?? ""}/></label>
+              <h3>Homepage content · English and Arabic</h3><label>Announcement bar<input name="announcement" defaultValue={adminSettings.homepage?.announcement ?? ""}/></label><div className="admin-form-grid"><label>Hero kicker (EN)<input name="hero_kicker" defaultValue={adminSettings.homepage?.kicker ?? "FUEL YOUR POTENTIAL"}/></label><label>Hero kicker (AR)<input name="hero_kicker_ar" dir="rtl" defaultValue={adminSettings.homepage?.kicker_ar ?? "أطلق إمكاناتك"}/></label><label>Hero first line (EN)<input name="hero_line_one" defaultValue={adminSettings.homepage?.hero_line_one ?? "HIGH PROTEIN"}/></label><label>Hero first line (AR)<input name="hero_line_one_ar" dir="rtl" defaultValue={adminSettings.homepage?.hero_line_one_ar ?? "بروتين عالي"}/></label><label>Hero second line (EN)<input name="hero_line_two" defaultValue={adminSettings.homepage?.hero_line_two ?? "+ CREATINE"}/></label><label>Hero second line (AR)<input name="hero_line_two_ar" dir="rtl" defaultValue={adminSettings.homepage?.hero_line_two_ar ?? "+ كرياتين"}/></label></div><label>Hero supporting text (EN)<textarea name="hero_subtitle" rows={2} defaultValue={adminSettings.homepage?.hero_subtitle ?? "Build Muscle. Recover Faster. Perform Stronger."}/></label><label>Hero supporting text (AR)<textarea name="hero_subtitle_ar" rows={2} dir="rtl" defaultValue={adminSettings.homepage?.hero_subtitle_ar ?? "ابنِ العضلات. تعافَ أسرع. أدِّ بشكل أقوى."}/></label><label>Upload hero product image from your computer<input name="hero_image" type="file" accept="image/jpeg,image/png,image/webp,image/avif"/></label>{adminSettings.homepage?.hero_image_url && <div className="admin-image-preview"><img src={adminSettings.homepage.hero_image_url} alt="Current hero"/> <small>Current hero image</small></div>}
               <h3>Social links</h3><div className="admin-form-grid"><label>Instagram URL<input name="instagram_url" type="url" defaultValue={adminSettings.social?.instagram_url ?? ""}/></label><label>Facebook URL<input name="facebook_url" type="url" defaultValue={adminSettings.social?.facebook_url ?? ""}/></label></div>
                             <h3>InstaPay configuration</h3><div className="admin-form-grid"><label>InstaPay alias / registered number<input name="instapay_alias" defaultValue={adminSettings.payments?.instapay_alias ?? ""} placeholder="Enter the official receiving alias"/></label><label>Account holder name<input name="instapay_account_name" defaultValue={adminSettings.payments?.account_name ?? ""}/></label></div><label>Customer transfer instructions<textarea name="instapay_instructions" rows={3} defaultValue={adminSettings.payments?.instructions ?? ""}/></label><h3>Seller details and customer policies</h3><div className="admin-form-grid"><label>Registered business / legal name<input name="legal_name" defaultValue={adminSettings.legal?.legal_name ?? ""}/></label><label>Commercial registration number<input name="commercial_register" defaultValue={adminSettings.legal?.commercial_register ?? ""}/></label><label>Tax registration number<input name="tax_number" defaultValue={adminSettings.legal?.tax_number ?? ""}/></label><label>Business address<input name="business_address" defaultValue={adminSettings.legal?.business_address ?? ""}/></label></div><label>Returns and exchanges policy<textarea name="return_policy" rows={4} defaultValue={adminSettings.legal?.return_policy ?? ""} placeholder="Set out your accurate return, exchange and damaged-product process."/></label><label>Shipping and delivery policy<textarea name="shipping_policy" rows={4} defaultValue={adminSettings.legal?.shipping_policy ?? ""} placeholder="Coverage areas, delivery estimates, fees and failed-delivery process."/></label><label>Privacy policy<textarea name="privacy_policy" rows={5} defaultValue={adminSettings.legal?.privacy_policy ?? ""} placeholder="Explain what customer data you collect, why, how long it is kept and how customers can contact you."/></label><label>Terms and conditions<textarea name="terms_conditions" rows={5} defaultValue={adminSettings.legal?.terms_conditions ?? ""} placeholder="Order acceptance, pricing, payment, product information, liability and disputes."/></label>
               <button className="admin-primary" type="submit">Save all store settings</button>
