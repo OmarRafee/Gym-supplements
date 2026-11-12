@@ -36,6 +36,7 @@ type Product = {
   description_ar?: string | null;
 };
 
+type SiteContentRow = { key:string; en:string|null; ar:string|null; image_url:string|null; updated_at?:string };
 type Coupon = { id:string; code:string; description:string|null; discount_type:"percentage"|"fixed"; discount_value:number; minimum_order:number; maximum_discount:number|null; usage_limit:number|null; used_count:number; starts_at:string|null; ends_at:string|null; is_active:boolean };
 type StoreCategory = { id:string; name:string; slug:string; description:string|null; image_url:string|null; sort_order:number; is_active:boolean };
 type AdminOrder = {
@@ -69,6 +70,7 @@ function App() {
   const [language, setLanguage] = useState<"en"|"ar">(() => window.localStorage.getItem("musashi-language") === "ar" ? "ar" : "en");
   const isArabic = language === "ar";
   const tr = (en: string, ar: string) => isArabic ? ar : en;
+  const [siteContent, setSiteContent] = useState<Record<string,SiteContentRow>>({});
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [motivationIndex, setMotivationIndex] = useState(0);
@@ -105,7 +107,7 @@ function App() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [adminTab, setAdminTab] = useState<"overview" | "products" | "orders" | "customers" | "inventory" | "discounts" | "categories" | "settings">("overview");
+  const [adminTab, setAdminTab] = useState<"overview" | "products" | "orders" | "customers" | "inventory" | "discounts" | "categories" | "content" | "settings">("overview");
   const [adminProducts, setAdminProducts] = useState<Product[]>([]);
   const [adminOrders, setAdminOrders] = useState<AdminOrder[]>([]);
   const [adminCustomers, setAdminCustomers] = useState<any[]>([]);
@@ -138,6 +140,19 @@ function App() {
     document.documentElement.dir = isArabic ? "rtl" : "ltr";
     try { window.localStorage.setItem("musashi-theme", theme); window.localStorage.setItem("musashi-language", language); } catch { /* Preferences remain usable if storage is blocked. */ }
   }, [theme, language, isArabic]);
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+    const loadSiteContent = async () => {
+      const { data, error } = await supabase!.from("site_content").select("key,en,ar,image_url,updated_at");
+      if (!active) return;
+      if (error) { setNotice("Site content could not be loaded: " + error.message); return; }
+      setSiteContent(Object.fromEntries((data ?? []).map((row:any) => [row.key,row as SiteContentRow])));
+    };
+    void loadSiteContent();
+    const channel = supabase.channel("musashi-site-content-live").on("postgres_changes", { event:"*", schema:"public", table:"site_content" }, () => { void loadSiteContent(); }).subscribe();
+    return () => { active = false; void supabase?.removeChannel(channel); };
+  }, []);
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setInterval(() => setHeroQuoteIndex(index => (index + 1) % heroQuotes.length), 2800);
@@ -345,6 +360,31 @@ function App() {
     if (!supabase || !isAdmin) return;
     const { error } = await supabase.from("product_categories").update({ is_active: !item.is_active }).eq("id",item.id);
     if (error) setNotice(error.message); else { setNotice(item.is_active ? "Category hidden." : "Category restored."); await loadAdminData(); }
+  }
+
+  async function saveSiteContent(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !isAdmin) return;
+    const form = new FormData(event.currentTarget);
+    let heroImageUrl = siteContent.hero_photo?.image_url || null;
+    const heroFile = form.get("hero_photo_file");
+    if (heroFile instanceof File && heroFile.size > 0) {
+      if (!/^image\\/(jpeg|png|webp|avif)$/.test(heroFile.type) || heroFile.size > 8 * 1024 * 1024) { setNotice("Hero image must be JPG, PNG, WEBP or AVIF and no larger than 8 MB."); return; }
+      const safeName = heroFile.name.toLowerCase().replace(/[^a-z0-9.-]+/g, "-");
+      const objectPath = `homepage/${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage.from("site-media").upload(objectPath, heroFile, { contentType: heroFile.type, cacheControl: "31536000", upsert: false });
+      if (uploadError) { setNotice("Hero image upload failed: " + uploadError.message); return; }
+      heroImageUrl = supabase.storage.from("site-media").getPublicUrl(objectPath).data.publicUrl;
+    }
+    const keys = ["announcement","hero_eyebrow","hero_title","hero_line_two","hero_subtitle","hero_cta","shelves_title","shelves_subtitle","promise_1_title","promise_1_body","promise_2_title","promise_2_body","promise_3_title","promise_3_body","about_title","about_body","journal_title","footer_text"];
+    const records = keys.map(key => ({ key, en: String(form.get(`${key}_en`) || "").trim(), ar: String(form.get(`${key}_ar`) || "").trim(), image_url: siteContent[key]?.image_url || null }));
+    records.push({ key:"hero_photo", en:null, ar:null, image_url:heroImageUrl } as any);
+    const { error } = await supabase.from("site_content").upsert(records, { onConflict:"key" });
+    if (error) { setNotice("Site content could not be saved: " + error.message); return; }
+    const { data, error:refreshError } = await supabase.from("site_content").select("key,en,ar,image_url,updated_at");
+    if (refreshError) { setNotice("Content saved, but refresh failed: " + refreshError.message); return; }
+    setSiteContent(Object.fromEntries((data ?? []).map((row:any) => [row.key,row as SiteContentRow])));
+    setNotice("Website content saved to Supabase and synced to visitors.");
   }
 
   async function saveStoreSettings(event: React.FormEvent<HTMLFormElement>) {
@@ -663,17 +703,17 @@ function App() {
           
           <div className="hero-inner">
             <div className="hero-copy">
-              <p className="hero-kicker">{isArabic ? (adminSettings.homepage?.kicker_ar || "أطلق إمكاناتك") : (adminSettings.homepage?.kicker || "FUEL YOUR POTENTIAL")} <i/></p>
-              <h1 className="hero-main-title"><span>{isArabic ? (adminSettings.homepage?.hero_line_one_ar || "بروتين عالي") : (adminSettings.homepage?.hero_line_one || "HIGH PROTEIN")}</span><em>{isArabic ? (adminSettings.homepage?.hero_line_two_ar || "+ كرياتين") : (adminSettings.homepage?.hero_line_two || "+ CREATINE")}</em></h1>
-              <p className="hero-tagline">{isArabic ? (adminSettings.homepage?.hero_subtitle_ar || "ابنِ العضلات. تعافَ أسرع. أدِّ بشكل أقوى.") : (adminSettings.homepage?.hero_subtitle || "Build Muscle. Recover Faster. Perform Stronger.")}</p>
+              <p className="hero-kicker">{siteContent.hero_eyebrow?.[language] || (isArabic ? "أطلق إمكاناتك" : "FUEL YOUR POTENTIAL")} <i/></p>
+              <h1 className="hero-main-title"><span>{siteContent.hero_title?.[language] || (isArabic ? "بروتين عالي" : "HIGH PROTEIN")}</span><em>{siteContent.hero_line_two?.[language] || (isArabic ? "+ كرياتين" : "+ CREATINE")}</em></h1>
+              <p className="hero-tagline">{siteContent.hero_subtitle?.[language] || (isArabic ? "ابنِ العضلات. تعافَ أسرع. أدِّ بشكل أقوى." : "Build Muscle. Recover Faster. Perform Stronger.")}</p>
               <div className="hero-benefits"><div><Dumbbell/><strong>30G</strong><small>{tr("PROTEIN","بروتين")}</small></div><div><Zap/><strong>19</strong><small>{tr("SERVES","حصة")}</small></div><div><Flame/><strong>{tr("RECOVERY","تعافٍ")}</strong><small>{tr("FOR MUSCLE REPAIR","لدعم تعافي العضلات")}</small></div></div>
-              <div className="hero-links"><a className="button button-light hero-shop-cta" href="#shop">{tr("SHOP NOW","تسوق الآن")} <ArrowRight size={20}/></a></div>
+              <div className="hero-links"><a className="button button-light hero-shop-cta" href="#shop">{siteContent.hero_cta?.[language] || tr("SHOP NOW","تسوق الآن")} <ArrowRight size={20}/></a></div>
             </div>
             <div className="hero-visual">
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
               <div className="hero-product-label"><span>01 / MUSASHI RECOVER</span><span>{tr("HIGH PROTEIN + CREATINE · 900 G","بروتين عالي + كرياتين · 900 جم")}</span></div>
               <div className="creatine-photo-stage" ref={bottleRef}>
-                <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={adminSettings.homepage?.hero_image_url || (import.meta.env.BASE_URL + "musashi-product.svg")} alt="Musashi Recover high protein and creatine 900 gram tub" fetchPriority="high" decoding="async" onLoad={(event) => { event.currentTarget.style.opacity = "1"; const fallback = event.currentTarget.nextElementSibling as HTMLElement | null; if (fallback) fallback.style.display = "none"; event.currentTarget.parentElement?.classList.remove("hero-image-fallback"); }} onError={(event) => { event.currentTarget.style.display = "none"; event.currentTarget.parentElement?.classList.add("hero-image-fallback"); }} />
+                <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={siteContent.hero_photo?.image_url || adminSettings.homepage?.hero_image_url || (import.meta.env.BASE_URL + "musashi-product.svg")} alt="Musashi Recover high protein and creatine 900 gram tub" fetchPriority="high" decoding="async" onLoad={(event) => { event.currentTarget.style.opacity = "1"; const fallback = event.currentTarget.nextElementSibling as HTMLElement | null; if (fallback) fallback.style.display = "none"; event.currentTarget.parentElement?.classList.remove("hero-image-fallback"); }} onError={(event) => { event.currentTarget.style.display = "none"; event.currentTarget.parentElement?.classList.add("hero-image-fallback"); }} />
                 <div className="hero-fallback-tub" aria-hidden="true"><span className="fallback-cap"/><span className="fallback-label"><b>MUSASHI</b><strong>RECOVER<br/>HIGH PROTEIN<br/>+ CREATINE</strong><small>30G PROTEIN&nbsp;&nbsp; | &nbsp;&nbsp;19 SERVES</small></span></div>
                 <span className="photo-caption">MUSASHI RECOVER · 900 G</span>
               </div>
@@ -691,7 +731,7 @@ function App() {
         </section>
 
         <section className="shop-section section-pad" id="shop">
-          <div className="section-heading reveal"><div><p className="eyebrow">{tr("THE STOCKROOM / LIVE DATABASE","المتجر / المنتجات المتاحة")}</p><h2>{tr("Gear up. Get stronger.","استعد. كن أقوى.")}</h2></div><p>{tr("Real catalogue records, clear availability and product details. Only verified stock can be added to your bag.","منتجات حقيقية وتوافر واضح وتفاصيل دقيقة. يمكنك شراء المنتجات المتاحة فقط.")}</p></div>
+          <div className="section-heading reveal"><div><p className="eyebrow">{tr("THE STOCKROOM / LIVE DATABASE","المتجر / المنتجات المتاحة")}</p><h2>{siteContent.shelves_title?.[language] || tr("Gear up. Get stronger.","استعد. كن أقوى.")}</h2></div><p>{siteContent.shelves_subtitle?.[language] || tr("Real catalogue records, clear availability and product details. Only verified stock can be added to your bag.","منتجات حقيقية وتوافر واضح وتفاصيل دقيقة. يمكنك شراء المنتجات المتاحة فقط.")}</p></div>
           <div className="filter-row reveal"><div className="filters">{categories.map((item) => <button key={item} className={category === item ? "filter active" : "filter"} onClick={() => setCategory(item)}>{item}</button>)}</div><label className="shop-search"><span>{tr("SEARCH","بحث")}</span><input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder={tr("Find your formula…","ابحث عن منتجك…")}/></label><span>{visibleProducts.length.toString().padStart(2,"0")} {tr("PRODUCTS","منتجات")}</span></div>
           <div className="catalog-status"><span className="live-dot"/> {tr("LIVE CATALOGUE","الكتالوج المباشر")} <b>{products.length} {tr("DATABASE ITEMS","منتجات في قاعدة البيانات")}</b><span>{productsLoading ? tr("SYNCING…","جارٍ التحديث…") : tr("UPDATED LIVE","محدّث الآن")}</span></div>
           <div className="gym-shelf-rows">
@@ -766,7 +806,7 @@ function App() {
         <aside className="admin-sidebar">
           <div className="admin-brand"><span className="admin-brand-mark">F.</span><div><strong>{adminSettings.store_profile?.store_name || "MUSASHI"}</strong><small>STORE CONTROL</small></div></div>
           <div className="admin-nav">
-            {(["overview","products","orders","customers","inventory","discounts","categories","settings"] as const).map((tab) => <button key={tab} className={adminTab === tab ? "active" : ""} onClick={() => setAdminTab(tab)}>{tab}</button>)}
+            {(["overview","products","orders","customers","inventory","discounts","categories","content","settings"] as const).map((tab) => <button key={tab} className={adminTab === tab ? "active" : ""} onClick={() => setAdminTab(tab)}>{tab}</button>)}
           </div>
           <div className="admin-sidebar-bottom"><span>{userEmail}</span><button onClick={() => setAdminOpen(false)}>Back to storefront ↗</button><button onClick={async () => { await supabase?.auth.signOut(); setAdminOpen(false); }}>Sign out</button></div>
         </aside>
@@ -866,6 +906,7 @@ function App() {
               {!adminCategories.length && <p className="admin-empty">Add categories to organise your catalogue.</p>}
             </div>
           </div>}
+          {adminTab === "content" && <div className="admin-content"><div className="admin-panel"><div className="admin-panel-head"><h2>Website content manager</h2><span className="status-pill">Live database content</span></div><p className="admin-help">Edit the text in both languages. Changes are saved to Supabase and synced to open storefronts. Upload image files directly from this computer.</p><form className="admin-settings-form" onSubmit={saveSiteContent}><h3>Hero section</h3><label>Announcement (EN)<input name="announcement_en" defaultValue={siteContent.announcement?.en ?? ""}/></label><label>Announcement (AR)<input name="announcement_ar" dir="rtl" defaultValue={siteContent.announcement?.ar ?? ""}/></label><div className="admin-form-grid"><label>Eyebrow (EN)<input name="hero_eyebrow_en" defaultValue={siteContent.hero_eyebrow?.en ?? "FUEL YOUR POTENTIAL"}/></label><label>Eyebrow (AR)<input name="hero_eyebrow_ar" dir="rtl" defaultValue={siteContent.hero_eyebrow?.ar ?? "أطلق إمكاناتك"}/></label><label>Headline line 1 (EN)<input name="hero_title_en" defaultValue={siteContent.hero_title?.en ?? "HIGH PROTEIN"}/></label><label>Headline line 1 (AR)<input name="hero_title_ar" dir="rtl" defaultValue={siteContent.hero_title?.ar ?? "بروتين عالي"}/></label><label>Headline line 2 (EN)<input name="hero_line_two_en" defaultValue={siteContent.hero_line_two?.en ?? "+ CREATINE"}/></label><label>Headline line 2 (AR)<input name="hero_line_two_ar" dir="rtl" defaultValue={siteContent.hero_line_two?.ar ?? "+ كرياتين"}/></label></div><label>Supporting text (EN)<textarea name="hero_subtitle_en" rows={2} defaultValue={siteContent.hero_subtitle?.en ?? "Build Muscle. Recover Faster. Perform Stronger."}/></label><label>Supporting text (AR)<textarea name="hero_subtitle_ar" rows={2} dir="rtl" defaultValue={siteContent.hero_subtitle?.ar ?? "ابنِ العضلات. تعافَ أسرع. أدِّ بشكل أقوى."}/></label><div className="admin-form-grid"><label>Main button (EN)<input name="hero_cta_en" defaultValue={siteContent.hero_cta?.en ?? "SHOP NOW"}/></label><label>Main button (AR)<input name="hero_cta_ar" dir="rtl" defaultValue={siteContent.hero_cta?.ar ?? "تسوق الآن"}/></label></div><label>Upload hero product image<input name="hero_photo_file" type="file" accept="image/jpeg,image/png,image/webp,image/avif"/></label>{siteContent.hero_photo?.image_url && <div className="admin-image-preview"><img src={siteContent.hero_photo.image_url} alt="Current hero"/><small>Current hero image. Upload a replacement above.</small></div>}<h3>Product shelves</h3><div className="admin-form-grid"><label>Section title (EN)<input name="shelves_title_en" defaultValue={siteContent.shelves_title?.en ?? "THE ARSENAL"}/></label><label>Section title (AR)<input name="shelves_title_ar" dir="rtl" defaultValue={siteContent.shelves_title?.ar ?? "المنتجات"}/></label></div><label>Section description (EN)<textarea name="shelves_subtitle_en" rows={2} defaultValue={siteContent.shelves_subtitle?.en ?? "Choose the right formula for your training."}/></label><label>Section description (AR)<textarea name="shelves_subtitle_ar" rows={2} dir="rtl" defaultValue={siteContent.shelves_subtitle?.ar ?? "اختر التركيبة المناسبة لتدريبك."}/></label><h3>Store promises</h3>{[1,2,3].map(n=><div className="admin-form-grid" key={n}><label>Promise {n} title (EN)<input name={`promise_${n}_title_en`} defaultValue={siteContent[`promise_${n}_title`]?.en ?? ""}/></label><label>Promise {n} title (AR)<input name={`promise_${n}_title_ar`} dir="rtl" defaultValue={siteContent[`promise_${n}_title`]?.ar ?? ""}/></label><label>Promise {n} description (EN)<input name={`promise_${n}_body_en`} defaultValue={siteContent[`promise_${n}_body`]?.en ?? ""}/></label><label>Promise {n} description (AR)<input name={`promise_${n}_body_ar`} dir="rtl" defaultValue={siteContent[`promise_${n}_body`]?.ar ?? ""}/></label></div>)}<h3>About, journal and footer</h3><div className="admin-form-grid"><label>About title (EN)<input name="about_title_en" defaultValue={siteContent.about_title?.en ?? "Progress is built in the details."}/></label><label>About title (AR)<input name="about_title_ar" dir="rtl" defaultValue={siteContent.about_title?.ar ?? "التقدم يبدأ من التفاصيل"}/></label></div><label>About paragraph (EN)<textarea name="about_body_en" rows={3} defaultValue={siteContent.about_body?.en ?? ""}/></label><label>About paragraph (AR)<textarea name="about_body_ar" rows={3} dir="rtl" defaultValue={siteContent.about_body?.ar ?? ""}/></label><div className="admin-form-grid"><label>Journal title (EN)<input name="journal_title_en" defaultValue={siteContent.journal_title?.en ?? "Knowledge is part of the work."}/></label><label>Journal title (AR)<input name="journal_title_ar" dir="rtl" defaultValue={siteContent.journal_title?.ar ?? "المعرفة جزء من الرحلة"}/></label></div><label>Footer description (EN)<textarea name="footer_text_en" rows={2} defaultValue={siteContent.footer_text?.en ?? ""}/></label><label>Footer description (AR)<textarea name="footer_text_ar" rows={2} dir="rtl" defaultValue={siteContent.footer_text?.ar ?? ""}/></label><button className="admin-primary" type="submit">Save website content</button></form></div></div>}
           {adminTab === "settings" && <div className="admin-content"><div className="admin-panel"><div className="admin-panel-head"><h2>Store experience</h2><span className="status-pill">Live configuration</span></div>
             <form className="admin-settings-form" key={JSON.stringify(adminSettings)} onSubmit={saveStoreSettings}>
               <h3>Brand and customer support</h3><div className="admin-form-grid"><label>Store name<input name="store_name" defaultValue={adminSettings.store_profile?.store_name ?? "MUSASHI"}/></label><label>Support email<input name="support_email" type="email" defaultValue={adminSettings.store_profile?.support_email ?? ""}/></label><label>Support phone<input name="support_phone" defaultValue={adminSettings.store_profile?.support_phone ?? ""}/></label><label>WhatsApp number<input name="whatsapp_number" defaultValue={adminSettings.social?.whatsapp_number ?? ""}/></label></div>
