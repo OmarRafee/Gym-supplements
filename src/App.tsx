@@ -371,7 +371,7 @@ function App() {
     for (const media of mediaFields) {
       const file = form.get(media.field);
       if (!(file instanceof File) || file.size === 0) continue;
-      if (!/^image\\/(jpeg|png|webp|avif)$/.test(file.type) || file.size > 8 * 1024 * 1024) { setNotice("Images must be JPG, PNG, WEBP or AVIF and no larger than 8 MB each."); return; }
+      if (!/^image\/(jpeg|png|webp|avif)$/.test(file.type) || file.size > 8 * 1024 * 1024) { setNotice("Images must be JPG, PNG, WEBP or AVIF and no larger than 8 MB each."); return; }
       const safeName = file.name.toLowerCase().replace(/[^a-z0-9.-]+/g, "-");
       const objectPath = `site/${media.key}/${crypto.randomUUID()}-${safeName}`;
       const { error: uploadError } = await supabase.storage.from("site-media").upload(objectPath, file, { contentType:file.type, cacheControl:"31536000", upsert:false });
