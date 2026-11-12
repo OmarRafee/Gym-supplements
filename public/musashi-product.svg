@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 840" role="img" aria-labelledby="title desc">
+<title id="title">MUSASHI Recover High Protein and Creatine 900 gram tub</title>
+<desc id="desc">Black cylindrical MUSASHI supplement tub with a glossy black screw lid and red, white and grey label, isolated on a transparent background.</desc>
+<defs>
+ <linearGradient id="cap" x1="0" x2="1"><stop stop-color="#050608"/><stop offset=".13" stop-color="#55585d"/><stop offset=".24" stop-color="#101216"/><stop offset=".52" stop-color="#34373c"/><stop offset=".76" stop-color="#08090b"/><stop offset=".9" stop-color="#4c5055"/><stop offset="1" stop-color="#060709"/></linearGradient>
+ <linearGradient id="body" x1="0" x2="1"><stop stop-color="#030405"/><stop offset=".12" stop-color="#292c30"/><stop offset=".27" stop-color="#08090b"/><stop offset=".52" stop-color="#191c20"/><stop offset=".75" stop-color="#050608"/><stop offset=".9" stop-color="#282b30"/><stop offset="1" stop-color="#020304"/></linearGradient>
+ <linearGradient id="shoulder" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#4b4e53"/><stop offset=".18" stop-color="#121417"/><stop offset=".7" stop-color="#050608"/><stop offset="1" stop-color="#282b30"/></linearGradient>
+ <linearGradient id="base" x1="0" x2="1"><stop stop-color="#050608"/><stop offset=".18" stop-color="#383b40"/><stop offset=".45" stop-color="#111317"/><stop offset=".8" stop-color="#292c31"/><stop offset="1" stop-color="#030405"/></linearGradient>
+ <linearGradient id="label" x1="0" x2="1"><stop stop-color="#050608"/><stop offset=".2" stop-color="#17191d"/><stop offset=".55" stop-color="#08090b"/><stop offset=".82" stop-color="#1d2025"/><stop offset="1" stop-color="#050608"/></linearGradient>
+ <linearGradient id="red" x1="0" x2="1"><stop stop-color="#d90012"/><stop offset=".5" stop-color="#ff1729"/><stop offset="1" stop-color="#c90011"/></linearGradient>
+ <linearGradient id="metal" x1="0" x2="1"><stop stop-color="#3b3e43"/><stop offset=".5" stop-color="#9ba0a6"/><stop offset="1" stop-color="#25282d"/></linearGradient>
+ <filter id="shadow" x="-40%" y="-30%" width="180%" height="180%"><feGaussianBlur stdDeviation="17"/></filter>
+ <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".7" numOctaves="2" seed="11"/><feColorMatrix values="1 0 0 0 .2 0 1 0 0 .2 0 0 1 0 .2 0 0 0 .14 0"/></filter>
+ <clipPath id="bodyClip"><path d="M135 210 Q135 160 190 145 L530 145 Q585 160 585 210 L585 710 Q585 770 520 785 L200 785 Q135 770 135 710Z"/></clipPath>
+</defs>
+<ellipse cx="365" cy="795" rx="250" ry="27" fill="#000" opacity=".42" filter="url(#shadow)"/>
+<!-- screw cap -->
+<path d="M218 64 Q218 38 250 30 L470 30 Q502 38 502 64 L502 144 L218 144Z" fill="url(#cap)" stroke="#686d73" stroke-width="3"/>
+<path d="M222 69 H498 M222 80 H498 M222 118 H498 M222 130 H498" stroke="#aeb2b8" stroke-opacity=".4" stroke-width="3"/>
+<path d="M236 38 V137 M250 34 V139 M270 32 V140 M450 32 V140 M470 34 V139 M484 38 V137" stroke="#fff" stroke-opacity=".12" stroke-width="5"/>
+<path d="M217 140 Q360 153 503 140 L503 163 Q360 177 217 163Z" fill="#08090b" stroke="#555a60" stroke-width="3"/>
+<!-- rounded tub -->
+<path d="M135 210 Q135 160 190 145 Q360 120 530 145 Q585 160 585 210 L585 710 Q585 770 520 785 L200 785 Q135 770 135 710Z" fill="url(#body)" stroke="#51565c" stroke-width="4"/>
+<path d="M145 210 Q360 177 575 210 L575 700 Q360 730 145 700Z" fill="url(#label)" clip-path="url(#bodyClip)"/>
+<path d="M144 212 Q360 180 576 212" fill="none" stroke="#7b8086" stroke-opacity=".45" stroke-width="4"/>
+<path d="M148 235 V690 M570 235 V690" stroke="#fff" stroke-opacity=".08" stroke-width="5"/>
+<!-- grunge mark -->
+<path d="M390 470 l120 -35 -45 75 82 -22 -90 120 50 5 -115 110 32 -87 -64 12 65 -91 -57 8 76 -95 -62 15Z" fill="#7b8087" opacity=".18"/>
+<path d="M410 480 l112 -30 -65 90 77 -20 -110 125 22 -75 -70 14 82 -99 -61 12Z" fill="url(#metal)" opacity=".22"/>
+<path d="M395 500 l180 -70 M420 545 l135 -40 M400 600 l150 -50 M420 655 l100 -34" stroke="#b8bdc2" stroke-opacity=".12" stroke-width="7"/>
+<g font-family="Arial,Helvetica,sans-serif" text-anchor="middle">
+ <text x="360" y="330" font-size="69" font-weight="900" letter-spacing="3" fill="url(#red)">MUSASHI<tspan font-size="17" baseline-shift="super">®</tspan></text>
+ <text x="255" y="388" font-size="25" font-weight="900" font-style="italic" fill="#9da2a8" text-anchor="start">RECOVER</text>
+ <text x="360" y="445" font-size="47" font-weight="900" font-style="italic" fill="#fff">HIGH PROTEIN</text>
+ <text x="360" y="498" font-size="53" font-weight="900" font-style="italic" fill="#fff">+ CREATINE</text>
+ <text x="360" y="533" font-size="16" font-weight="700" letter-spacing="1" fill="#d5d8dc">PROTEIN &amp; CREATINE BLEND</text>
+ <path d="M240 550 H480" stroke="#aeb2b8" stroke-width="2" opacity=".8"/>
+ <text x="270" y="601" font-size="37" font-weight="900" fill="#fff">30G</text>
+ <text x="270" y="625" font-size="14" font-weight="700" fill="#e3e5e7">PROTEIN</text>
+ <path d="M320 570 V635" stroke="#aeb2b8" stroke-width="2"/>
+ <text x="360" y="601" font-size="37" font-weight="900" fill="#fff">19</text>
+ <text x="360" y="625" font-size="14" font-weight="700" fill="#e3e5e7">SERVES</text>
+ <path d="M400 570 V635" stroke="#aeb2b8" stroke-width="2"/>
+ <text x="452" y="590" font-size="15" font-weight="900" fill="#fff">FOR MUSCLE</text>
+ <text x="452" y="610" font-size="15" font-weight="900" fill="#fff">REPAIR AND</text>
+ <text x="452" y="630" font-size="15" font-weight="900" fill="#fff">RECOVERY*</text>
+</g>
+<path d="M235 660 H365 V710 H235Z" fill="#a84a21" stroke="#e06a37" stroke-width="2"/>
+<g font-family="Arial,Helvetica,sans-serif" text-anchor="middle" fill="#fff" font-weight="900">
+ <text x="300" y="681" font-size="17">CHOCOLATE</text><text x="300" y="701" font-size="17">FLAVOUR</text>
+</g>
+<text x="530" y="725" font-family="Arial,sans-serif" font-size="17" font-weight="800" fill="#fff" text-anchor="end">900G</text>
+<!-- base rim -->
+<path d="M137 702 Q360 730 583 702 L583 728 Q580 774 520 785 L200 785 Q140 774 137 728Z" fill="url(#base)" stroke="#60656b" stroke-width="3"/>
+<path d="M150 720 Q360 746 570 720" fill="none" stroke="#b7bcc2" stroke-opacity=".25" stroke-width="3"/>
+<path d="M205 775 Q360 798 515 775" fill="none" stroke="#fff" stroke-opacity=".1" stroke-width="4"/>
+<!-- studio glints -->
+<path d="M160 230 Q155 450 160 665" stroke="#fff" stroke-opacity=".08" stroke-width="7" fill="none"/>
+<path d="M560 245 Q565 450 560 660" stroke="#fff" stroke-opacity=".12" stroke-width="6" fill="none"/>
+<rect x="0" y="0" width="720" height="840" filter="url(#grain)" opacity=".18" clip-path="url(#bodyClip)"/>
+</svg>
