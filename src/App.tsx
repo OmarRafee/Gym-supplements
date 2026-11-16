@@ -65,7 +65,6 @@ const toLocalDateTime = (value?: string | null) => { if (!value) return ""; cons
 function App() {
   const heroRef = useRef<HTMLElement>(null);
   const bottleRef = useRef<HTMLDivElement>(null);
-  const creatinePhotoRef = useRef<HTMLImageElement>(null);
   const theme = "dark";
   const [language, setLanguage] = useState<"en"|"ar">(() => window.localStorage.getItem("musashi-language") === "ar" ? "ar" : "en");
   const isArabic = language === "ar";
@@ -220,8 +219,7 @@ function App() {
         intro.from(".nav-inner", { y: -18, opacity: 0, duration: 0.65 })
           .from(".hero-copy > *", { y: 24, opacity: 0, duration: 0.65, stagger: 0.09 }, "-=0.25")
           .from(bottleRef.current, { y: 24, opacity: 0, duration: 0.9, ease: "power2.out" }, "-=0.35");
-        // ScrollTrigger scrubs the bottle rotation while the browser keeps native, uninterrupted scrolling.
-        gsap.to(".musashi-3d-object", { rotateY: 360, ease:"none", transformOrigin:"50% 50%", scrollTrigger:{ trigger: document.documentElement, start:"top top", end:"bottom bottom", scrub:0.45 } });
+
         gsap.to(".visual-orbit.orbit-one", { scale: 1.035, opacity: 0.72, ease: "none", scrollTrigger: { trigger: heroRef.current, start: "top top", end: "bottom top", scrub: 0.6 } });
         gsap.to(".hero-visual:before", { yPercent: -8, ease: "none", scrollTrigger: { trigger: heroRef.current, start: "top top", end: "bottom top", scrub: 0.6 } });
         gsap.utils.toArray<HTMLElement>(".shelf-tier-track").forEach(track => {
@@ -707,7 +705,7 @@ function App() {
           <div className="nav-actions">
             <button className="preference-toggle" type="button" onClick={() => setLanguage(language === "en" ? "ar" : "en")} aria-label="Change language">{language === "en" ? "عربي" : "EN"}</button>
             {isAdmin && <button className="text-button admin-nav-button" onClick={() => { setAdminOpen(true); setAdminTab("overview"); void loadAdminData(); }}>ADMIN</button>}
-            <button className="text-button account-button" onClick={() => { if (userEmail) void loadMyOrders(); else { setAuthMode("login"); setAuthOpen(true); } }}>{userEmail ? "MY ACCOUNT" : "SIGN IN / JOIN"}</button>
+            <button className="text-button account-button" onClick={() => { if (userEmail) void loadMyOrders(); else { setAuthMode("login"); setAuthOpen(true); } }}>{tr("MY ACCOUNT", "حسابي")}</button>
             <button className="bag-button" aria-label="Open cart" onClick={() => setCartOpen(true)}><ShoppingBag size={17}/><span>Bag ({Object.values(cart).reduce((a,b) => a+b, 0)})</span></button>
             <button className="menu-button" aria-label="Toggle menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X/> : <Menu/>}</button>
           </div>
@@ -729,10 +727,7 @@ function App() {
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
               <div className="hero-product-label"><span>01 / MUSASHI RECOVER</span><span>{tr("HIGH PROTEIN + CREATINE · 900 G","بروتين عالي + كرياتين · 900 جم")}</span></div>
               <div className="creatine-photo-stage" ref={bottleRef}>
-                <div className="musashi-3d-object" aria-label="Three-dimensional MUSASHI Recover protein and creatine tub">
-                  <span className="musashi-3d-back" aria-hidden="true"/>
-                  <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={siteContent.hero_photo?.image_url || (import.meta.env.BASE_URL + "musashi-hero-original.webp")} alt="MUSASHI Recover High Protein + Creatine 900 gram tub" fetchPriority="high" decoding="async"/>
-                </div>
+                <img className="creatine-powder-photo musashi-hero-bottle" src={siteContent.hero_photo?.image_url || (import.meta.env.BASE_URL + "musashi-hero-original.webp")} alt="MUSASHI Recover High Protein + Creatine, 900 g" fetchPriority="high" decoding="async"/>
                 <span className="photo-caption">MUSASHI RECOVER · 900 G</span>
               </div>
               <span className="scroll-cue"><ArrowDown size={14}/> {tr("SCROLL TO EXPLORE THE FORMULA","مرر لاستكشاف التركيبة")}</span>
@@ -751,7 +746,7 @@ function App() {
         <section className="shop-section section-pad" id="shop">
           <div className="section-heading reveal"><div><p className="eyebrow">{tr("THE STOCKROOM / LIVE DATABASE","المتجر / المنتجات المتاحة")}</p><h2>{siteContent.shelves_title?.[language] || tr("Gear up. Get stronger.","استعد. كن أقوى.")}</h2></div><p>{siteContent.shelves_subtitle?.[language] || tr("Real catalogue records, clear availability and product details. Only verified stock can be added to your bag.","منتجات حقيقية وتوافر واضح وتفاصيل دقيقة. يمكنك شراء المنتجات المتاحة فقط.")}</p></div>
           <div className="filter-row reveal"><div className="filters">{categories.map((item) => <button key={item} className={category === item ? "filter active" : "filter"} onClick={() => setCategory(item)}>{item}</button>)}</div><label className="shop-search"><span>{tr("SEARCH","بحث")}</span><input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder={tr("Find your formula…","ابحث عن منتجك…")}/></label><span>{visibleProducts.length.toString().padStart(2,"0")} {tr("PRODUCTS","منتجات")}</span></div>
-          <div className="catalog-status"><span className="live-dot"/> {tr("LIVE CATALOGUE","الكتالوج المباشر")} <b>{products.length} {tr("DATABASE ITEMS","منتجات في قاعدة البيانات")}</b><span>{productsLoading ? tr("SYNCING…","جارٍ التحديث…") : tr("UPDATED LIVE","محدّث الآن")}</span></div>
+          <div className="catalog-status"><span className="live-dot"/> {tr("AVAILABLE NOW","متاح الآن")} <b>{products.length} {tr("PRODUCTS","منتجات")}</b><span>{productsLoading ? tr("UPDATING…","جارٍ التحديث…") : tr("LIVE STOCK","المخزون المباشر")}</span></div>
           <div className="gym-shelf-rows">
             {Array.from({ length: Math.ceil(visibleProducts.length / 3) }, (_, shelfIndex) => (
               <div className="gym-shelf-tier" key={`shelf-${shelfIndex}`}>
