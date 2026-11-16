@@ -66,7 +66,7 @@ function App() {
   const heroRef = useRef<HTMLElement>(null);
   const bottleRef = useRef<HTMLDivElement>(null);
   const creatinePhotoRef = useRef<HTMLImageElement>(null);
-  const [theme, setTheme] = useState<"dark"|"light">(() => window.localStorage.getItem("musashi-theme") === "light" ? "light" : "dark");
+  const theme = "dark";
   const [language, setLanguage] = useState<"en"|"ar">(() => window.localStorage.getItem("musashi-language") === "ar" ? "ar" : "en");
   const isArabic = language === "ar";
   const tr = (en: string, ar: string) => isArabic ? ar : en;
@@ -123,6 +123,8 @@ function App() {
   const [myOrdersOpen, setMyOrdersOpen] = useState(false);
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [myOrdersLoading, setMyOrdersLoading] = useState(false);
+  const [myProfile, setMyProfile] = useState({ full_name:"", phone:"", address:"", city:"" });
+  const [profileSaving, setProfileSaving] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
@@ -135,10 +137,10 @@ function App() {
     try { window.localStorage.setItem("forme-cart", JSON.stringify(cart)); } catch { /* Storage may be unavailable in private browsing. */ }
   }, [cart]);
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.theme = "dark";
     document.documentElement.lang = language;
     document.documentElement.dir = isArabic ? "rtl" : "ltr";
-    try { window.localStorage.setItem("musashi-theme", theme); window.localStorage.setItem("musashi-language", language); } catch { /* Preferences remain usable if storage is blocked. */ }
+    try { window.localStorage.removeItem("musashi-theme"); window.localStorage.setItem("musashi-language", language); } catch { /* Preferences remain usable if storage is blocked. */ }
   }, [theme, language, isArabic]);
   useEffect(() => {
     if (!supabase) return;
@@ -218,7 +220,8 @@ function App() {
         intro.from(".nav-inner", { y: -18, opacity: 0, duration: 0.65 })
           .from(".hero-copy > *", { y: 24, opacity: 0, duration: 0.65, stagger: 0.09 }, "-=0.25")
           .from(bottleRef.current, { y: 24, opacity: 0, duration: 0.9, ease: "power2.out" }, "-=0.35");
-        // Product photography remains fixed; motion belongs to the surrounding atmosphere.
+        // ScrollTrigger scrubs the bottle rotation while the browser keeps native, uninterrupted scrolling.
+        gsap.to(".musashi-3d-object", { rotateY: 360, ease:"none", transformOrigin:"50% 50%", scrollTrigger:{ trigger: document.documentElement, start:"top top", end:"bottom bottom", scrub:0.45 } });
         gsap.to(".visual-orbit.orbit-one", { scale: 1.035, opacity: 0.72, ease: "none", scrollTrigger: { trigger: heroRef.current, start: "top top", end: "bottom top", scrub: 0.6 } });
         gsap.to(".hero-visual:before", { yPercent: -8, ease: "none", scrollTrigger: { trigger: heroRef.current, start: "top top", end: "bottom top", scrub: 0.6 } });
         gsap.utils.toArray<HTMLElement>(".shelf-tier-track").forEach(track => {
@@ -274,12 +277,25 @@ function App() {
     const { data: session } = await supabase.auth.getSession();
     if (!session.session) { setAuthMode("login"); setAuthOpen(true); return; }
     setMyOrdersLoading(true);
+    const { data: profileData, error: profileError } = await supabase.from("profiles").select("full_name,phone,address,city").eq("id", session.session.user.id).maybeSingle();
+    if (!profileError && profileData) setMyProfile({ full_name:profileData.full_name ?? "", phone:profileData.phone ?? "", address:profileData.address ?? "", city:profileData.city ?? "" });
     const { data, error } = await supabase.from("orders")
       .select("id,order_number,status,payment_status,payment_method,total,created_at,tracking_number,order_items(product_name,quantity,line_total)")
       .order("created_at",{ascending:false}).limit(30);
     if (error) setNotice(error.message); else setMyOrders(data ?? []);
     setMyOrdersLoading(false);
     setMyOrdersOpen(true);
+  }
+
+  async function saveMyProfile(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase) return;
+    const { data:{session} } = await supabase.auth.getSession();
+    if (!session?.user) { setAuthMode("login"); setAuthOpen(true); return; }
+    setProfileSaving(true);
+    const { error } = await supabase.from("profiles").upsert({ id:session.user.id, email:session.user.email, ...myProfile, updated_at:new Date().toISOString() }, { onConflict:"id" });
+    setProfileSaving(false);
+    setNotice(error ? "Profile could not be saved: " + error.message : "Your account details have been updated.");
   }
 
   async function previewCoupon() {
@@ -687,11 +703,9 @@ function App() {
             <a href="#top" onClick={() => setMenuOpen(false)}>{tr("Home","الرئيسية")}</a>
             <a href="#shop" onClick={() => setMenuOpen(false)}>{tr("Products","المنتجات")}</a>
             <a href="#philosophy" onClick={() => setMenuOpen(false)}>{tr("About","عن المتجر")}</a>
-            <a href="#account" onClick={(e) => {e.preventDefault();setMenuOpen(false);if(userEmail)void loadMyOrders();else{setAuthMode("login");setAuthOpen(true);}}}>{tr("Account","حسابي")}</a>
           </nav>
           <div className="nav-actions">
             <button className="preference-toggle" type="button" onClick={() => setLanguage(language === "en" ? "ar" : "en")} aria-label="Change language">{language === "en" ? "عربي" : "EN"}</button>
-            <button className="preference-toggle theme-toggle" type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label="Change colour theme">{theme === "dark" ? "☼" : "☾"}</button>
             {isAdmin && <button className="text-button admin-nav-button" onClick={() => { setAdminOpen(true); setAdminTab("overview"); void loadAdminData(); }}>ADMIN</button>}
             <button className="text-button account-button" onClick={() => { if (userEmail) void loadMyOrders(); else { setAuthMode("login"); setAuthOpen(true); } }}>{userEmail ? "MY ACCOUNT" : "SIGN IN / JOIN"}</button>
             <button className="bag-button" aria-label="Open cart" onClick={() => setCartOpen(true)}><ShoppingBag size={17}/><span>Bag ({Object.values(cart).reduce((a,b) => a+b, 0)})</span></button>
@@ -715,8 +729,10 @@ function App() {
               <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
               <div className="hero-product-label"><span>01 / MUSASHI RECOVER</span><span>{tr("HIGH PROTEIN + CREATINE · 900 G","بروتين عالي + كرياتين · 900 جم")}</span></div>
               <div className="creatine-photo-stage" ref={bottleRef}>
-                <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={siteContent.hero_photo?.image_url || adminSettings.homepage?.hero_image_url || (import.meta.env.BASE_URL + "musashi-product.svg")} alt="Musashi Recover high protein and creatine 900 gram tub" fetchPriority="high" decoding="async" onLoad={(event) => { event.currentTarget.style.opacity = "1"; const fallback = event.currentTarget.nextElementSibling as HTMLElement | null; if (fallback) fallback.style.display = "none"; event.currentTarget.parentElement?.classList.remove("hero-image-fallback"); }} onError={(event) => { event.currentTarget.style.display = "none"; event.currentTarget.parentElement?.classList.add("hero-image-fallback"); }} />
-                <div className="hero-fallback-tub" aria-hidden="true"><span className="fallback-cap"/><span className="fallback-label"><b>MUSASHI</b><strong>RECOVER<br/>HIGH PROTEIN<br/>+ CREATINE</strong><small>30G PROTEIN&nbsp;&nbsp; | &nbsp;&nbsp;19 SERVES</small></span></div>
+                <div className="musashi-3d-object" aria-label="Three-dimensional MUSASHI Recover protein and creatine tub">
+                  <span className="musashi-3d-back" aria-hidden="true"/>
+                  <img ref={creatinePhotoRef} className="creatine-powder-photo musashi-hero-bottle" src={siteContent.hero_photo?.image_url || (import.meta.env.BASE_URL + "musashi-hero-original.webp")} alt="MUSASHI Recover High Protein + Creatine 900 gram tub" fetchPriority="high" decoding="async"/>
+                </div>
                 <span className="photo-caption">MUSASHI RECOVER · 900 G</span>
               </div>
               <span className="scroll-cue"><ArrowDown size={14}/> {tr("SCROLL TO EXPLORE THE FORMULA","مرر لاستكشاف التركيبة")}</span>
@@ -791,7 +807,7 @@ function App() {
         </>}</aside></div>}
 
 
-      {myOrdersOpen && <div className="modal-backdrop" onClick={()=>setMyOrdersOpen(false)}><section className="auth-modal my-orders-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setMyOrdersOpen(false)}><X/></button><p className="eyebrow">YOUR MUSASHI ACCOUNT</p><h2>Your orders.</h2><p className="auth-sub">{userEmail}</p>{myOrdersLoading ? <p className="admin-loading">Loading your orders…</p> : myOrders.length ? <div className="my-orders-list">{myOrders.map(order=><article key={order.id}><div className="my-order-heading"><strong>{order.order_number || order.id.slice(0,8)}</strong><span className={"status-pill status-"+order.status}>{order.status === "pending" ? "Received" : order.status}</span></div><small>{new Date(order.created_at).toLocaleDateString()} · {order.payment_method.toUpperCase()}</small>{(order.order_items ?? []).map((item:any,i:number)=><p key={i}>{item.product_name} × {item.quantity}</p>)}<div className="my-order-foot"><b>{money(Number(order.total))}</b><span>{order.payment_status.replaceAll("_"," ")}</span></div>{order.tracking_number && <small>Tracking: {order.tracking_number}</small>}</article>)}</div> : <p className="admin-empty">You haven't placed an order yet. Your next step starts in the collection.</p>}<button className="switch-auth" onClick={async()=>{await supabase?.auth.signOut();setMyOrdersOpen(false);setNotice("You have signed out.");}}>Sign out</button></section></div>}
+      {myOrdersOpen && <div className="modal-backdrop" onClick={()=>setMyOrdersOpen(false)}><section className="auth-modal my-orders-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setMyOrdersOpen(false)}><X/></button><p className="eyebrow">YOUR MUSASHI ACCOUNT</p><h2>Your orders.</h2><p className="auth-sub">{userEmail}</p>{<form className="my-profile-form" onSubmit={saveMyProfile}><h3>{tr("Your details","بياناتك")}</h3><div className="profile-form-grid"><label>{tr("Full name","الاسم الكامل")}<input value={myProfile.full_name} onChange={e=>setMyProfile(p=>({...p,full_name:e.target.value}))} required maxLength={120}/></label><label>{tr("Phone","رقم الهاتف")}<input value={myProfile.phone} onChange={e=>setMyProfile(p=>({...p,phone:e.target.value}))} required maxLength={30}/></label><label>{tr("City","المدينة")}<input value={myProfile.city} onChange={e=>setMyProfile(p=>({...p,city:e.target.value}))} maxLength={100}/></label><label>{tr("Delivery address","عنوان التوصيل")}<input value={myProfile.address} onChange={e=>setMyProfile(p=>({...p,address:e.target.value}))} maxLength={300}/></label></div><button className="admin-primary" type="submit" disabled={profileSaving}>{profileSaving ? tr("Saving…","جارٍ الحفظ…") : tr("Save my details","حفظ بياناتي")}</button></form>}{myOrdersLoading ? <p className="admin-loading">Loading your orders…</p> : myOrders.length ? <div className="my-orders-list">{myOrders.map(order=><article key={order.id}><div className="my-order-heading"><strong>{order.order_number || order.id.slice(0,8)}</strong><span className={"status-pill status-"+order.status}>{order.status === "pending" ? "Received" : order.status}</span></div><small>{new Date(order.created_at).toLocaleDateString()} · {order.payment_method.toUpperCase()}</small>{(order.order_items ?? []).map((item:any,i:number)=><p key={i}>{item.product_name} × {item.quantity}</p>)}<div className="my-order-foot"><b>{money(Number(order.total))}</b><span>{order.payment_status.replaceAll("_"," ")}</span></div>{order.tracking_number && <small>Tracking: {order.tracking_number}</small>}</article>)}</div> : <p className="admin-empty">You haven't placed an order yet. Your next step starts in the collection.</p>}<button className="switch-auth" onClick={async()=>{await supabase?.auth.signOut();setMyOrdersOpen(false);setNotice("You have signed out.");}}>Sign out</button></section></div>}
       {selectedProduct && <div className="modal-backdrop" onClick={() => setSelectedProduct(null)}><section className="product-detail-modal" onClick={event=>event.stopPropagation()}><button className="icon-button modal-close" onClick={()=>setSelectedProduct(null)}><X/></button><div className="product-detail-art">{selectedProduct.image_url ? <img src={selectedProduct.image_url} alt={selectedProduct.name}/> : <div className="mini-tub"><span>{adminSettings.store_profile?.store_name || "MUSASHI"}</span><strong>{selectedProduct.name.toUpperCase()}</strong><small>{selectedProduct.category?.toUpperCase()}</small></div>}</div><div className="product-detail-copy"><p className="eyebrow">{selectedProduct.category?.toUpperCase()} / PRODUCT DETAILS</p><h2>{isArabic ? (selectedProduct.name_ar || selectedProduct.name) : selectedProduct.name}</h2>{selectedProduct.brand && <p className="product-brand">{selectedProduct.brand}</p>}<p>{isArabic ? (selectedProduct.description_ar || selectedProduct.description) : selectedProduct.description}</p><strong className="product-detail-price">{selectedProduct.is_active ? money(Number(selectedProduct.price)) : "AVAILABILITY TO BE CONFIRMED"}</strong>{selectedProduct.size_label && <div className="product-detail-fact"><span>SIZE</span><b>{selectedProduct.size_label}</b></div>}{selectedProduct.servings && <div className="product-detail-fact"><span>SERVINGS</span><b>{selectedProduct.servings}</b></div>}{selectedProduct.ingredients && <div className="product-detail-section"><strong>Ingredients</strong><p>{selectedProduct.ingredients}</p></div>}{selectedProduct.directions && <div className="product-detail-section"><strong>How to use</strong><p>{selectedProduct.directions}</p></div>}{selectedProduct.warnings && <div className="product-detail-section"><strong>Important information</strong><p>{selectedProduct.warnings}</p></div>}<button className="button button-dark full-button" disabled={!selectedProduct.is_active || selectedProduct.stock<=0} onClick={()=>{addToCart(selectedProduct.id);setSelectedProduct(null);}}>{!selectedProduct.is_active ? "Coming soon" : selectedProduct.stock<=0 ? "Out of stock" : "Add to bag"} <ArrowRight size={16}/></button></div></section></div>}
       {checkoutOpen && <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}><section className="auth-modal checkout-modal" onClick={(event) => event.stopPropagation()}><button className="icon-button modal-close" onClick={() => setCheckoutOpen(false)}><X/></button><p className="eyebrow">SECURE CHECKOUT</p><h2>Almost yours.</h2><p className="auth-sub">Delivery details · Your order is confirmed after you submit this form.</p>
           <div className="coupon-entry"><div><label htmlFor="checkout-coupon">Discount code</label><div className="coupon-entry-row"><input id="checkout-coupon" value={couponCode} onChange={e => {setCouponCode(e.target.value.toUpperCase());setCouponDiscount(0);setCouponMessage("");}} placeholder="Enter your code"/><button type="button" onClick={() => void previewCoupon()}>Apply</button></div></div>{couponMessage && <small className={couponDiscount > 0 ? "coupon-success" : "coupon-error"}>{couponMessage}</small>}</div>
