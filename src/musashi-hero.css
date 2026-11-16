@@ -12,3 +12,20 @@
 .hero-fallback-tub{display:flex!important;position:absolute!important;z-index:21!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:min(62%,370px)!important;height:min(65vh,480px)!important;min-height:340px!important}
 .photo-caption{z-index:25!important}
 @media(max-width:720px){.creatine-photo-stage{z-index:20!important}.musashi-hero-bottle{width:min(100%,390px)!important;max-height:410px!important}.hero-fallback-tub{width:65%!important;height:350px!important;min-height:300px!important}}
+
+/* One real product cutout presented as a CSS 3D tub. ScrollTrigger rotates the object only; it never captures wheel/touch input. */
+.creatine-photo-stage{perspective:1100px!important;transform-style:preserve-3d!important;isolation:isolate!important;overflow:visible!important}
+.musashi-3d-object{position:relative;width:min(76%,430px);height:min(68vh,570px);min-height:390px;display:grid;place-items:center;transform-style:preserve-3d;will-change:transform;z-index:24}
+.musashi-hero-bottle{position:relative!important;width:100%!important;height:100%!important;max-height:none!important;object-fit:contain!important;z-index:3!important;transform:translateZ(24px)!important;filter:drop-shadow(0 32px 28px rgba(0,0,0,.7)) drop-shadow(0 0 24px rgba(255,25,35,.12))!important;backface-visibility:hidden!important}
+.musashi-3d-back{position:absolute;inset:8% 7%;border-radius:22% 22% 18% 18% / 10% 10% 12% 12%;background:linear-gradient(90deg,#050607 0%,#17191d 18%,#08090b 45%,#25282d 72%,#050607 100%);border:1px solid #45484d;box-shadow:inset 16px 0 22px #fff1,inset -18px 0 28px #000,0 24px 36px #000a;transform:rotateY(180deg) translateZ(18px);backface-visibility:hidden}
+.musashi-3d-object:before{content:"";position:absolute;z-index:1;inset:8% 7%;border-radius:22% 22% 18% 18% / 10% 10% 12% 12%;background:linear-gradient(90deg,#020304,#34383e 12%,#090a0c 27%,#1b1e23 50%,#060708 74%,#34383e 88%,#030405);transform:translateZ(-2px);box-shadow:inset 0 0 28px #000,0 30px 40px #0009}
+.musashi-3d-object:after{content:"";position:absolute;z-index:0;left:18%;right:18%;bottom:3%;height:8%;border-radius:50%;background:radial-gradient(ellipse,#ff202a55 0%,#ff202a1c 45%,transparent 72%);filter:blur(14px);transform:rotateX(72deg) translateZ(-20px)}
+.hero-fallback-tub{display:none!important}
+[data-theme="light"]{color-scheme:dark!important;background:#08090b!important;color:#f4f4f2!important}
+.my-profile-form{display:grid;gap:14px;margin:22px 0;padding:20px;border:1px solid var(--line);border-radius:14px;background:#101216}
+.my-profile-form h3{margin:0;font:800 23px var(--font-display);text-transform:uppercase}
+.profile-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.profile-form-grid label{display:grid;gap:6px;color:var(--muted);font-size:12px}
+.profile-form-grid input{width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:12px;background:#090a0c;color:#fff}
+@media(max-width:720px){.musashi-3d-object{width:min(88%,360px);height:400px;min-height:340px}.profile-form-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.musashi-3d-object{will-change:auto;transform:none!important}}
