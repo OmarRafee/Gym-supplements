@@ -4,6 +4,7 @@ import App from "./App";
 import "./styles.css";
 import "./musashi-homepage.css";
 import "./brand-refresh.css";
+import "./glass-theme.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
