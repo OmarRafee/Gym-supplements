@@ -724,11 +724,22 @@ function App() {
               <div className="hero-links"><a className="button button-light hero-shop-cta" href="#shop">{siteContent.hero_cta?.[language] || tr("SHOP NOW","تسوق الآن")} <ArrowRight size={20}/></a></div>
             </div>
             <div className="hero-visual">
-              <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
               <div className="hero-product-label"><span>01 / MUSASHI RECOVER</span><span>{tr("HIGH PROTEIN + CREATINE · 900 G","بروتين عالي + كرياتين · 900 جم")}</span></div>
-              <div className="creatine-photo-stage" ref={bottleRef}>
-                <img className="creatine-powder-photo musashi-hero-bottle" src={siteContent.hero_photo?.image_url || (import.meta.env.BASE_URL + "musashi-hero-original.webp")} alt="MUSASHI Recover High Protein + Creatine, 900 g" fetchPriority="high" decoding="async"/>
-                <span className="photo-caption">MUSASHI RECOVER · 900 G</span>
+              <div className="hero-product-stage" ref={bottleRef}>
+                {siteContent.hero_photo?.image_url && !siteContent.hero_photo.image_url.endsWith("/musashi-hero-original.webp") ? (
+                  <img className="musashi-hero-bottle" src={siteContent.hero_photo.image_url} alt="MUSASHI Recover High Protein + Creatine, 900 g" fetchPriority="high" decoding="async"/>
+                ) : (
+                  <article className="hero-product-card" aria-label={tr("MUSASHI Recover product details", "تفاصيل منتج موساشي ريكفر")}>
+                    <div className="hero-product-card-head"><span>FORMULA / 01</span><span>900 G</span></div>
+                    <div className="hero-product-card-main">
+                      <span className="hero-product-card-kicker">MUSASHI · RECOVER</span>
+                      <h2>{tr("HIGH PROTEIN", "بروتين عالي")}<em>+ {tr("CREATINE", "كرياتين")}</em></h2>
+                      <p>{tr("CHOCOLATE FLAVOUR · PERFORMANCE BLEND", "نكهة الشوكولاتة · تركيبة للأداء")}</p>
+                    </div>
+                    <div className="hero-product-card-facts"><div><strong>30<span>G</span></strong><small>{tr("PROTEIN", "بروتين")}</small></div><div><strong>19</strong><small>{tr("SERVES", "حصة")}</small></div><div><strong>900<span>G</span></strong><small>{tr("NET WEIGHT", "الوزن الصافي")}</small></div></div>
+                    <div className="hero-product-card-foot"><span>{tr("BUILT FOR TRAINING. MADE FOR RECOVERY.", "للتدريب. ولتعافٍ أفضل.")}</span><i/></div>
+                  </article>
+                )}
               </div>
               <span className="scroll-cue"><ArrowDown size={14}/> {tr("SCROLL TO EXPLORE THE FORMULA","مرر لاستكشاف التركيبة")}</span>
             </div>
