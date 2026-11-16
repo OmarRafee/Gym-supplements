@@ -62,7 +62,7 @@ type AdminOrder = {
   created_at: string;
   order_items?: { id: string; product_id: string; product_name: string; quantity: number; line_total: number; product_reviews?: { id: string; status: string }[] }[];
 };
-type ProductReview = { id: string; product_id: string; order_item_id: string; user_id: string; rating: number; title: string; body: string; status: "pending" | "approved" | "rejected"; created_at: string; products?: { name: string } | null };
+type ProductReview = { id: string; product_id: string; order_item_id: string; user_id: string; rating: number; title: string; body: string; status: "pending" | "approved" | "rejected"; created_at: string; products?: { name: string } | { name: string }[] | null };
 
 const productImages = (product: Pick<Product, "image_urls" | "image_url">) => product.image_urls?.length ? product.image_urls : product.image_url ? [product.image_url] : [];
 
@@ -969,7 +969,7 @@ function App() {
             </div>
           </div>}
           {adminTab === "reviews" && <div className="admin-content"><div className="admin-panel"><div className="admin-panel-head"><div><h2>Verified product reviews ({adminReviews.length})</h2><small>Only customers with delivered purchases can submit. Approve reviews before they appear publicly.</small></div></div>
-            {adminReviews.map(review=><article className="admin-review-row" key={review.id}><div><strong>{review.products?.name || "Product"}</strong><span className="review-stars" aria-label={`${review.rating} out of 5 stars`}>{Array.from({length:5},(_,index)=><Star key={index} size={13} fill={index<review.rating?"currentColor":"none"}/>)}</span><h3>{review.title}</h3><p>{review.body}</p><small>{new Date(review.created_at).toLocaleString()} · verified order</small></div><span className={`status-pill status-${review.status}`}>{review.status}</span><div className="admin-review-actions">{review.status!=="approved"&&<button className="admin-primary" onClick={()=>void updateProductReviewStatus(review,"approved")}>Approve</button>}{review.status!=="rejected"&&<button className="admin-danger" onClick={()=>void updateProductReviewStatus(review,"rejected")}>Hide</button>}</div></article>)}
+            {adminReviews.map(review=><article className="admin-review-row" key={review.id}><div><strong>{(Array.isArray(review.products) ? review.products[0]?.name : review.products?.name) || "Product"}</strong><span className="review-stars" aria-label={`${review.rating} out of 5 stars`}>{Array.from({length:5},(_,index)=><Star key={index} size={13} fill={index<review.rating?"currentColor":"none"}/>)}</span><h3>{review.title}</h3><p>{review.body}</p><small>{new Date(review.created_at).toLocaleString()} · verified order</small></div><span className={`status-pill status-${review.status}`}>{review.status}</span><div className="admin-review-actions">{review.status!=="approved"&&<button className="admin-primary" onClick={()=>void updateProductReviewStatus(review,"approved")}>Approve</button>}{review.status!=="rejected"&&<button className="admin-danger" onClick={()=>void updateProductReviewStatus(review,"rejected")}>Hide</button>}</div></article>)}
             {!adminReviews.length&&<p className="admin-empty">New customer reviews will appear here for approval.</p>}
           </div></div>}
           {adminTab === "orders" && <div className="admin-content"><div className="admin-panel"><div className="admin-panel-head"><h2>Orders ({adminOrders.length})</h2></div>
