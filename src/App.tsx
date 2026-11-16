@@ -222,9 +222,6 @@ function App() {
 
         gsap.to(".visual-orbit.orbit-one", { scale: 1.035, opacity: 0.72, ease: "none", scrollTrigger: { trigger: heroRef.current, start: "top top", end: "bottom top", scrub: 0.6 } });
         gsap.to(".hero-visual:before", { yPercent: -8, ease: "none", scrollTrigger: { trigger: heroRef.current, start: "top top", end: "bottom top", scrub: 0.6 } });
-        gsap.utils.toArray<HTMLElement>(".shelf-tier-track").forEach(track => {
-          gsap.fromTo(track, { x: 18 }, { x: -18, ease: "none", scrollTrigger: { trigger: track, start: "top 88%", end: "bottom 18%", scrub: 0.35 } });
-        });
         gsap.to(".ticker-track", { xPercent: -25, duration: 24, repeat: -1, ease: "none" });
         gsap.utils.toArray<HTMLElement>(".strength-signs article, .motivation-note, .product-card, .trust-strip > div, .journal-card, .faq-list details, .reveal").forEach((element,index) => {
           gsap.from(element, { y: 30, opacity: 0, duration: 0.7, delay: (index % 4) * 0.035, ease: "power3.out", scrollTrigger: { trigger: element, start: "top 91%", once: true } });
@@ -724,22 +721,15 @@ function App() {
               <div className="hero-links"><a className="button button-light hero-shop-cta" href="#shop">{siteContent.hero_cta?.[language] || tr("SHOP NOW","تسوق الآن")} <ArrowRight size={20}/></a></div>
             </div>
             <div className="hero-visual">
-              <div className="hero-product-label"><span>01 / MUSASHI RECOVER</span><span>{tr("HIGH PROTEIN + CREATINE · 900 G","بروتين عالي + كرياتين · 900 جم")}</span></div>
-              <div className="hero-product-stage" ref={bottleRef}>
-                {siteContent.hero_photo?.image_url && !siteContent.hero_photo.image_url.endsWith("/musashi-hero-original.webp") ? (
-                  <img className="musashi-hero-bottle" src={siteContent.hero_photo.image_url} alt="MUSASHI Recover High Protein + Creatine, 900 g" fetchPriority="high" decoding="async"/>
-                ) : (
-                  <article className="hero-product-card" aria-label={tr("MUSASHI Recover product details", "تفاصيل منتج موساشي ريكفر")}>
-                    <div className="hero-product-card-head"><span>FORMULA / 01</span><span>900 G</span></div>
-                    <div className="hero-product-card-main">
-                      <span className="hero-product-card-kicker">MUSASHI · RECOVER</span>
-                      <h2>{tr("HIGH PROTEIN", "بروتين عالي")}<em>+ {tr("CREATINE", "كرياتين")}</em></h2>
-                      <p>{tr("CHOCOLATE FLAVOUR · PERFORMANCE BLEND", "نكهة الشوكولاتة · تركيبة للأداء")}</p>
-                    </div>
-                    <div className="hero-product-card-facts"><div><strong>30<span>G</span></strong><small>{tr("PROTEIN", "بروتين")}</small></div><div><strong>19</strong><small>{tr("SERVES", "حصة")}</small></div><div><strong>900<span>G</span></strong><small>{tr("NET WEIGHT", "الوزن الصافي")}</small></div></div>
-                    <div className="hero-product-card-foot"><span>{tr("BUILT FOR TRAINING. MADE FOR RECOVERY.", "للتدريب. ولتعافٍ أفضل.")}</span><i/></div>
-                  </article>
-                )}
+              <div className="hero-product-label"><span>{tr("PERFORMANCE / FORMULA 01","الأداء / التركيبة ٠١")}</span><span>{tr("PROTEIN × CREATINE","بروتين × كرياتين")}</span></div>
+              <div className="glass-molecule-scene" ref={bottleRef} role="group" aria-label={tr("Abstract glass molecule representing sports nutrition", "تركيب جزيئي زجاجي مجرد يرمز للتغذية الرياضية")}>
+                <div className="molecule-orbit molecule-orbit-one"/><div className="molecule-orbit molecule-orbit-two"/><div className="molecule-orbit molecule-orbit-three"/>
+                <div className="molecule-bond bond-one"/><div className="molecule-bond bond-two"/><div className="molecule-bond bond-three"/>
+                <div className="molecule-node molecule-core"><span>M</span><i/></div>
+                <div className="molecule-node molecule-node-one"><span>P</span></div><div className="molecule-node molecule-node-two"><span>Cr</span></div><div className="molecule-node molecule-node-three"><span>+</span></div>
+                <div className="molecule-data molecule-data-protein"><b>30<span>G</span></b><small>{tr("PROTEIN","بروتين")}</small></div>
+                <div className="molecule-data molecule-data-serves"><b>19</b><small>{tr("SERVES","حصة")}</small></div>
+                <div className="molecule-scene-caption"><span>01</span><span>{tr("RECOVERY, IN MOTION","التعافي في حركة")}</span><i/></div>
               </div>
               <span className="scroll-cue"><ArrowDown size={14}/> {tr("SCROLL TO EXPLORE THE FORMULA","مرر لاستكشاف التركيبة")}</span>
             </div>
@@ -758,24 +748,18 @@ function App() {
           <div className="section-heading reveal"><div><p className="eyebrow">{tr("THE STOCKROOM / LIVE DATABASE","المتجر / المنتجات المتاحة")}</p><h2>{siteContent.shelves_title?.[language] || tr("Gear up. Get stronger.","استعد. كن أقوى.")}</h2></div><p>{siteContent.shelves_subtitle?.[language] || tr("Real catalogue records, clear availability and product details. Only verified stock can be added to your bag.","منتجات حقيقية وتوافر واضح وتفاصيل دقيقة. يمكنك شراء المنتجات المتاحة فقط.")}</p></div>
           <div className="filter-row reveal"><div className="filters">{categories.map((item) => <button key={item} className={category === item ? "filter active" : "filter"} onClick={() => setCategory(item)}>{item}</button>)}</div><label className="shop-search"><span>{tr("SEARCH","بحث")}</span><input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder={tr("Find your formula…","ابحث عن منتجك…")}/></label><span>{visibleProducts.length.toString().padStart(2,"0")} {tr("PRODUCTS","منتجات")}</span></div>
           <div className="catalog-status"><span className="live-dot"/> {tr("AVAILABLE NOW","متاح الآن")} <b>{products.length} {tr("PRODUCTS","منتجات")}</b><span>{productsLoading ? tr("UPDATING…","جارٍ التحديث…") : tr("LIVE STOCK","المخزون المباشر")}</span></div>
-          <div className="gym-shelf-rows">
-            {Array.from({ length: Math.ceil(visibleProducts.length / 3) }, (_, shelfIndex) => (
-              <div className="gym-shelf-tier" key={`shelf-${shelfIndex}`}>
-                <div className="shelf-tier-track">
-                  {visibleProducts.slice(shelfIndex * 3, shelfIndex * 3 + 3).map((product, index) => <article className="product-card reveal" key={product.id}>
-              <div className={`product-art art-${(shelfIndex * 3 + index) % 3}`}>
-                <span className="product-index">0{shelfIndex * 3 + index + 1} / MUSASHI</span>
-                {product.image_url && /^https?:\/\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className="product-image-pending"><span>{(product.brand || "MUSASHI").toUpperCase()}</span><strong>OFFICIAL<br/>PRODUCT PHOTO</strong><small>AWAITING VERIFIED IMAGE</small></div>}
+          <div className="product-grid">
+            {visibleProducts.map((product, index) => <article className="product-card glass-product-card reveal" key={product.id}>
+              <div className={`product-art art-${index % 3}`}>
+                <span className="product-index">{String(index + 1).padStart(2,"0")} <i/> MUSASHI</span>
+                {product.image_url && /^https?:\\/\\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className="product-image-pending"><span>{(product.brand || "MUSASHI").toUpperCase()}</span><strong>{tr("PRODUCT DETAILS","تفاصيل المنتج")}</strong><small>{tr("IMAGE COMING SOON","الصورة قريبًا")}</small></div>}
                 <button className="quick-add" aria-label={!product.is_active ? `View ${product.name}` : `Add ${product.name} to bag`} onClick={() => product.is_active ? addToCart(product.id) : setSelectedProduct(product)}><Plus size={18}/></button>
                 <span className="stock-note">{!product.is_active ? tr("COMING SOON","قريبًا") : product.stock > 0 ? `${product.stock} ${tr("UNITS AVAILABLE","وحدات متاحة")}` : tr("SOLD OUT","نفد المخزون")}</span>
               </div>
               <div className="product-meta"><div><span>{product.category?.toUpperCase() ?? "MUSASHI"}</span><h3>{isArabic ? (product.name_ar || product.name) : product.name}</h3></div><div className="product-pricing"><strong>{product.is_active ? money(Number(product.price)) : "AVAILABILITY SOON"}</strong>{product.compare_at_price && product.compare_at_price > product.price && <del>{money(Number(product.compare_at_price))}</del>}</div></div>
-              <p className="product-description">{isArabic ? (product.description_ar || product.description) : product.description}</p><button className="product-details-link" onClick={() => setSelectedProduct(product)}>{tr("Product details","تفاصيل المنتج")} <ArrowUpRight size={13}/></button>
+              <p className="product-description">{isArabic ? (product.description_ar || product.description) : product.description}</p>
+              <button className="product-details-link" onClick={() => setSelectedProduct(product)}>{tr("Product details","تفاصيل المنتج")} <ArrowUpRight size={13}/></button>
             </article>)}
-                </div>
-                <div className="shelf-front-rail"><span>STOCKROOM / TIER {String(shelfIndex + 1).padStart(2,"0")}</span><i/></div>
-              </div>
-            ))}
           </div>
           {productsLoading && <div className="catalog-skeletons" aria-label="Loading products">{Array.from({length:3},(_,i)=><div className="catalog-skeleton" key={i}><div/><span/><b/></div>)}</div>}
           {!productsLoading && visibleProducts.length === 0 && <div className="catalog-empty"><span>LIVE STOCKROOM</span><h3>{searchQuery ? "No matching products." : "No products are published yet."}</h3><p>{searchQuery ? "Try another name, brand or category." : "Add or publish products from the admin dashboard. The storefront reads directly from Supabase."}</p>{searchQuery && <button onClick={()=>setSearchQuery("")}>Clear search</button>}</div>}
