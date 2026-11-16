@@ -196,7 +196,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hero .hero-product-card-foot { margin-top: 16px; color: #918d89; font-size: 8px; }
 .hero .hero-product-card-foot i { width: 34px; height: 2px; background: var(--accent); }
 @media (max-width: 900px) {
-  .hero .hero-inner { min-height: 0 !important; grid-template-columns: minmax(0,1fr) minmax(0,.9fr) !important; gap: 20px !important; padding: 100px 26px 82px !important; }
+  .hero .hero-inner { display: grid !important; min-height: 0 !important; grid-template-columns: minmax(0,1fr) minmax(0,.9fr) !important; gap: 20px !important; padding: 100px 26px 82px !important; }
   .hero .hero-main-title { font-size: clamp(42px, 6vw, 62px) !important; max-width: 10ch !important; line-height: .92 !important; }
   .hero .hero-visual { min-height: 0 !important; }
   .hero .hero-product-stage { min-height: 405px; padding: 48px 0 12px; }
