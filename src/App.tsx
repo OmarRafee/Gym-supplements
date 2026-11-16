@@ -752,7 +752,7 @@ function App() {
             {visibleProducts.map((product, index) => <article className="product-card glass-product-card reveal" key={product.id}>
               <div className={`product-art art-${index % 3}`}>
                 <span className="product-index">{String(index + 1).padStart(2,"0")} <i/> MUSASHI</span>
-                {product.image_url && /^https?:\\/\\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className="product-image-pending"><span>{(product.brand || "MUSASHI").toUpperCase()}</span><strong>{tr("PRODUCT DETAILS","تفاصيل المنتج")}</strong><small>{tr("IMAGE COMING SOON","الصورة قريبًا")}</small></div>}
+                {product.image_url && /^https?:\/\//i.test(product.image_url) ? <img src={product.image_url} alt={product.name} loading="lazy"/> : <div className="product-image-pending"><span>{(product.brand || "MUSASHI").toUpperCase()}</span><strong>{tr("PRODUCT DETAILS","تفاصيل المنتج")}</strong><small>{tr("IMAGE COMING SOON","الصورة قريبًا")}</small></div>}
                 <button className="quick-add" aria-label={!product.is_active ? `View ${product.name}` : `Add ${product.name} to bag`} onClick={() => product.is_active ? addToCart(product.id) : setSelectedProduct(product)}><Plus size={18}/></button>
                 <span className="stock-note">{!product.is_active ? tr("COMING SOON","قريبًا") : product.stock > 0 ? `${product.stock} ${tr("UNITS AVAILABLE","وحدات متاحة")}` : tr("SOLD OUT","نفد المخزون")}</span>
               </div>
